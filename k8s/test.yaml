@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-consumer
+spec:
+  containers:
+  - name: api-consumer
+    image: curlimages/curl:latest  # Usamos una imagen de Curl para hacer solicitudes HTTP
+    command: ["sleep", "3600"]  # Mantener el pod en ejecución

@@ -1,0 +1,49 @@
+# Cobertura de código
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Benchmarks
+.benchmark/
+.benchmarks/
+
+# Entorno virtual
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+logs/
+
+# IDEs y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos temporales
+*.tmp
+*.temp
+.DS_Store
+
+# Archivos de distribución
+dist/
+build/
+*.egg-info/
+
+# Archivos de configuración local
+local_settings.py
+settings_local.py
+
+# Directorios de prueba generados
+.tox/
+.pytest_cache/

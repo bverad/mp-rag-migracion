@@ -1,0 +1,21 @@
+# Dependencias principales
+Flask==2.1.2
+langchain==0.3.19
+requests==2.32.3
+urllib3==2.2.3
+tiktoken==0.8.0
+langchain_openai==0.3.7
+python-dotenv==1.0.1
+langchain-community==0.3.18
+werkzeug==2.0.3
+scikit-learn>=1.0.2
+numpy>=1.21.0
+cachetools==5.3.2
+fastapi>=0.109.0
+pydantic>=2.6.0
+python-multipart>=0.0.9
+starlette>=0.36.0
+uvicorn>=0.27.0
+
+# nuevas dependencias
+jinja2>=3.0.1

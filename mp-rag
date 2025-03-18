@@ -1,0 +1,349 @@
+def projectName="mp-rag"
+def repodocker="mercadopublico"
+def projectVersion="1.0.0"
+def branch="feature/k8s-deployment"
+def sonarQube="http://192.168.2.166:9000"
+def apache="192.168.2.166"
+def nexus="192.168.2.166:5000"
+def status
+def testResults = [:]
+
+pipeline {
+	agent any
+	parameters {
+		booleanParam(name:'executeTests', defaultValue:true, description:'Ejecutar pruebas unitarias y de cobertura')
+	}
+	
+	    environment {
+        DOCKER_USERNAME = credentials('user-docker-ait')  // ID de la credencial del nombre de usuario
+        DOCKER_PASSWORD = credentials('pass-docker-ait')  // ID de la credencial de la contraseña
+        ADMIN_CONF = credentials('admin.conf')
+        PYTEST_ADDOPTS = "--html=reports/report.html --self-contained-html --cov=src --cov-report=html:reports/coverage --cov-report=term-missing"
+        TEST_COVERAGE_THRESHOLD = "80"
+    }
+	
+	stages {
+		stage('init') {
+		    steps {
+		        script {
+		            cleanWs()
+                    echo "init ${projectName} pipeline"
+		        }
+            }
+		}
+		
+		stage('git clone') {
+		    steps {
+		        script {
+		            sshagent(['git']) {
+                    echo "Git Clone ${projectName} Bitbucket"
+                    sh "ls -la ~/.ssh/"
+                    sh "git clone git@bitbucket.org:activeitspa/${projectName}.git"
+                    sh "cd ${projectName}; git checkout ${branch};git rev-parse --verify HEAD"
+                    sh "cd ${projectName}; git checkout ${branch};git pull"
+                    sh "cd ${projectName}; ls -la"
+
+		            }
+		        }
+            }
+		}
+
+//		stage('build') {
+//			steps {
+//			    withNPM(npmrcConfig:'30e6eabe-30bf-4eb5-884f-861fc4fe5b6e') {
+//                echo "Performing npm build..."
+//                sh 'cd mp-frontend; npm install'
+//                sh 'cd mp-frontend; npm run build'
+//            }
+
+//			}
+//		}
+		
+		stage('build') {
+			steps {
+			    script{
+			        echo "building app"
+                    //sh "mvn clean install"
+                    sh "cd ${projectName}; docker build -t ${projectName} ."
+			    }
+
+			}
+		}
+		
+		stage('test'){
+			when {
+				expression {
+					params.executeTests
+				}
+			}
+			steps {
+				script {
+					echo "Ejecutando pruebas unitarias y de cobertura"
+					try {
+						// Crear directorio para reportes
+						sh "mkdir -p ${projectName}/reports"
+						
+						// Ejecutar pruebas y generar reportes
+						def testOutput = sh(
+							script: """
+								cd ${projectName}
+								python -m pytest tests/ ${PYTEST_ADDOPTS}
+							""",
+							returnStdout: true
+						)
+						
+						// Obtener resultado de cobertura
+						def coverageOutput = sh(
+							script: "cd ${projectName} && coverage report",
+							returnStdout: true
+						)
+						
+						// Extraer porcentaje de cobertura
+						def coverageMatch = (coverageOutput =~ /TOTAL.*?(\d+)%/)
+						if (coverageMatch) {
+							testResults.coverage = coverageMatch[0][1] as Integer
+							if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD as Integer) {
+								error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
+							}
+						}
+						
+						// Archivar reportes
+						archiveArtifacts artifacts: "${projectName}/reports/**/*", fingerprint: true
+						
+						// Publicar reporte HTML de pruebas
+						publishHTML(target: [
+							allowMissing: false,
+							alwaysLinkToLastBuild: true,
+							keepAll: true,
+							reportDir: "${projectName}/reports",
+							reportFiles: 'report.html',
+							reportName: 'Test Report'
+						])
+						
+						// Publicar reporte de cobertura
+						publishHTML(target: [
+							allowMissing: false,
+							alwaysLinkToLastBuild: true,
+							keepAll: true,
+							reportDir: "${projectName}/reports/coverage",
+							reportFiles: 'index.html',
+							reportName: 'Coverage Report'
+						])
+					} catch (Exception e) {
+						testResults.failed = true
+						testResults.error = e.getMessage()
+						error "Error en las pruebas: ${e.getMessage()}"
+					}
+				}
+
+				echo "scanning code"
+				script {      
+					// requires SonarQube Scanner 2.8+
+					scannerHome = tool 'SonarQubeScanner'
+                    withSonarQubeEnv('SonarQubeAIT') {
+                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.sources=${projectName}/ -Dsonar.host.url=${sonarQube} -Dsonar.projectKey=${projectName} -Dsonar.projectName=${projectName} -Dsonar.projectVersion=${projectVersion} -Dsonar.language=js"
+                    }
+
+                    echo "trivy evaluation"
+                    
+                    sh "trivy fs --format template --template '@/home/jenkins/templates/html.tpl' --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL --exit-code 0 -o trivy-report.html ./"
+
+
+                }
+                
+     
+			}
+			
+			
+		}
+		
+		           stage('docker push') {
+			steps {
+			    script{
+			        echo "docker push nexus-ait"
+			        sh """
+                    echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
+                    """
+                    sh "docker tag ${projectName}:latest mpulgarf/${repodocker}-${projectName}:latest"
+                    sh "docker push mpulgarf/${repodocker}-${projectName}:latest"
+			    }
+
+			}
+		}
+		
+		stage('kubernetes deploy') {
+			steps {
+			    script{
+			        echo "despliegue imagen kubernetes-ait"
+			        sh "rm -f /var/lib/jenkins/.kube/config"
+			        sh "cp -f /home/jenkins/config /var/lib/jenkins/.kube/config"			        
+			        sh "export KUBECONFIG=~/.kube/config"
+                    sh "kubectl apply -f ${projectName}/k8s/deployment.yaml --validate=false"
+                    sh "kubectl rollout restart deployment ${projectName}-deployment"
+			    }
+
+			}
+		}
+		
+	}
+	
+	post {
+   		success {
+            echo "Success"
+            script{
+                status = "success"
+                echo "final status ${status}"
+
+            }
+		}
+		
+		failure {
+		    echo "Failure"
+		    script {
+		        status = "failure"
+		    }
+		}
+		
+		aborted {
+		    echo "Aborted"
+		    script {
+		        status = "aborted"
+		    }
+		}
+
+        cleanup {
+           echo "Sending slack notification"
+           script {
+                echo "final status ${status}"
+                def blocks = getBlockSlackMessage(projectName, projectVersion, status)
+                
+                // Agregar resultados de pruebas al mensaje de Slack si existen
+                if (testResults) {
+                    def testBlock = [
+                        "type": "section",
+                        "text": [
+                            "type": "mrkdwn",
+                            "text": "*Test Results*\n" +
+                                   "${testResults.failed ? '❌ Tests failed: ' + testResults.error : '✅ All tests passed'}\n" +
+                                   "Coverage: ${testResults.coverage ?: 'N/A'}%"
+                        ]
+                    ]
+                    blocks.add(blocks.size() - 1, testBlock)
+                }
+                
+                def slackResponse = slackSend(color:"${status.equals('success') ? 'good' : 'danger'}", blocks: blocks)
+                
+                // Adjuntar reportes al hilo de Slack
+                if (fileExists("${projectName}/reports/report.html")) {
+                    slackUploadFile(channel: slackResponse.threadId, filePath: "${projectName}/reports/report.html", initialComment: "Test Report")
+                }
+                if (fileExists("${projectName}/reports/coverage/index.html")) {
+                    slackUploadFile(channel: slackResponse.threadId, filePath: "${projectName}/reports/coverage/index.html", initialComment: "Coverage Report")
+                }
+                slackUploadFile(channel: slackResponse.threadId, filePath: "trivy-report.html", initialComment: "Trivy report.")
+
+                echo "Cleaning workspace"
+                cleanWs()
+
+            }
+        }
+	}
+	
+}
+
+def getBlockSlackMessage(projectName, projectVersion, status){
+    blocks = [
+        [
+            "type": "header",
+            "text": [
+                "type": "plain_text",
+                "text": "Building application ${projectName}:${projectVersion} ${status}",
+                "emoji": true
+            ]
+        ],
+        [
+            "type": "divider"
+        ],
+        [
+            "type": "section",
+            "text": [
+                "type": "mrkdwn",
+                "text": "Details of building in the next link :ghost: *if you want* you can see the results in Jenkins. <${env.BUILD_URL}|Open>"
+            ],
+
+            "fields": [
+                [
+                    "type": "mrkdwn",
+                    "text": "*Job name*"
+                ],
+                [
+                    "type": "plain_text",
+                    "text": "${env.JOB_NAME}"
+                ],
+                [
+                    "type": "mrkdwn",
+                    "text": "*Build URL*"
+                ],
+                [
+                    "type": "plain_text",
+                    "text": "${env.BUILD_URL}"
+                ],
+                [
+                    "type": "mrkdwn",
+                    "text": "*Build number*"
+                ],
+                [
+                    "type": "plain_text",
+                    "text": "${env.BUILD_NUMBER}"
+                ],
+                [
+                    "type": "mrkdwn",
+                    "text": "*Build display name*"
+                ],
+                [
+                    "type": "plain_text",
+                    "text": "${env.BUILD_DISPLAY_NAME}"
+                ],
+                [
+                    "type": "mrkdwn",
+                    "text": "*Branch*"
+                ],
+                [
+                    "type": "plain_text",
+                    "text": "${env.GIT_BRANCH}"
+                ]
+            ]
+        ],
+        [
+            "type": "header",
+            "text": [
+                "type": "plain_text",
+                "text": "Reports",
+                "emoji": true
+            ]
+        ],
+        [
+            "type": "divider"
+        ],
+        [
+            "type": "section",
+            "text": [
+                "type": "mrkdwn",
+                "text": "*SonarQube*"
+            ],
+            "accessory": [
+                "type": "button",
+                "text": [
+                    "type": "plain_text",
+                    "text": "Click Me",
+                    "emoji": true
+                ],
+                "value": "click_me_123",
+                "url": "http://192.168.2.166:9000/dashboard?id=${projectName}",
+                "action_id": "button-action"
+            ]
+        ]
+    ]
+
+    return blocks;
+}

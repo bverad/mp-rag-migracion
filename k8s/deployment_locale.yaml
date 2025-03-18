@@ -1,0 +1,68 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mp-rag-config
+data:
+  API_BASE_URL: "https://backendlicitaciones.activeit.com"
+  FLASK_ENV: "development"
+  LOG_LEVEL: "INFO"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mp-rag-secrets
+type: Opaque
+data:
+  OPENAI_API_KEY: "c2stcHJvai1tRmtmYUZFaXFoT3BwdXJGSnNROGhSZHJWSWltTjltcTJJRVhNa2JubGZKMUFITWswVjVQS01DUlpfczRCTlBoLUdqX3JFcFlxeFQzQmxia0ZKckFzcVM3UmFVZFYyc21wWFQyaVFqbWhMUkF1TXhyb1RzQVpMSURZV0UwQ203RHg4dGZSalpSa2tEUk4tYU1Md2ZzRVF4N3dlNEE="
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mp-rag-deployment
+  labels:
+    app: mp-rag
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mp-rag
+  template:
+    metadata:
+      labels:
+        app: mp-rag
+    spec:
+      containers:
+      - name: mp-rag
+        image: mp-rag:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: mp-rag-config
+        - secretRef:
+            name: mp-rag-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mp-rag-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: mp-rag 
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 5000

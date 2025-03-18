@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: MP-RAG API
+  description: API para procesamiento de licitaciones con IA
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Servidor de desarrollo
+
+paths:
+  /:
+    get:
+      summary: Endpoint raíz
+      description: Devuelve información básica de la API
+      responses:
+        '200':
+          description: Información básica de la API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: MP-RAG API
+                  version:
+                    type: string
+                    example: 1.0.0
+                  status:
+                    type: string
+                    example: running
+
+  /api/licitaciones:
+    get:
+      summary: Obtener licitaciones
+      description: Obtiene una lista de licitaciones con filtros opcionales
+      parameters:
+        - name: q
+          in: query
+          description: Término de búsqueda
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de licitaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  licitaciones:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Licitacion'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Crear licitación
+      description: Crea una nueva licitación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Licitacion'
+      responses:
+        '200':
+          description: Licitación creada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: created
+                  data:
+                    $ref: '#/components/schemas/Licitacion'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/licitaciones/admin:
+    get:
+      summary: Panel de administración
+      description: Acceso al panel de administración de licitaciones
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Acceso exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: string
+                    example: Admin data
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Licitacion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "123"
+        nombre:
+          type: string
+          example: "Licitación de ejemplo"
+        descripcion:
+          type: string
+          example: "Descripción de la licitación"
+        documentos:
+          type: array
+          items:
+            type: string
+          example: ["doc1.pdf", "doc2.pdf"]
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Error message"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 

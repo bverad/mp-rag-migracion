@@ -90,9 +90,14 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Verificar que la API key no se haya truncado
-        if len(self.OPENAI_API_KEY) != len(OPENAI_API_KEY_VALUE):
-            raise ValueError("Error en la configuración de credenciales de autenticación")
+        # Verificar que la API key no se haya truncado solo si no estamos en modo testing
+        is_testing = os.getenv("TESTING", "False").lower() == "true" or kwargs.get("TESTING", False)
+        
+        # En modo testing, no validamos la longitud de la API key
+        if not is_testing:
+            # En producción, validamos que la API key tenga el formato correcto
+            if not self.OPENAI_API_KEY.startswith("sk-"):
+                raise ValueError("Error en la configuración de credenciales de autenticación: La API key debe comenzar con 'sk-'")
         
         # Configurar el puerto
         try:

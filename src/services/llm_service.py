@@ -294,7 +294,7 @@ Asegúrate de:
             if self.testing:
                 logger.info("Test mode: Skipping API key refresh")
                 return
-            self.settings = get_settings()
+            # La API key ya está en self.settings, no necesitamos obtener una nueva instancia
             self._validate_api_key()
             os.environ["OPENAI_API_KEY"] = self.settings.OPENAI_API_KEY
             self._initialize_models()

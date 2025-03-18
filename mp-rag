@@ -1,7 +1,7 @@
-def projectName="mp-rag"
+def projectName="mp-rag-migracion"
 def repodocker="mercadopublico"
 def projectVersion="1.0.0"
-def branch="feature/k8s-deployment"
+def branch="main"
 def sonarQube="http://192.168.2.166:9000"
 def apache="192.168.2.166"
 def nexus="192.168.2.166:5000"
@@ -14,7 +14,7 @@ pipeline {
 		booleanParam(name:'executeTests', defaultValue:true, description:'Ejecutar pruebas unitarias y de cobertura')
 	}
 	
-	    environment {
+	environment {
         DOCKER_USERNAME = credentials('user-docker-ait')  // ID de la credencial del nombre de usuario
         DOCKER_PASSWORD = credentials('pass-docker-ait')  // ID de la credencial de la contraseña
         ADMIN_CONF = credentials('admin.conf')
@@ -36,9 +36,9 @@ pipeline {
 		    steps {
 		        script {
 		            sshagent(['git']) {
-                    echo "Git Clone ${projectName} Bitbucket"
+                    echo "Git clone ${projectName} github"
                     sh "ls -la ~/.ssh/"
-                    sh "git clone git@bitbucket.org:activeitspa/${projectName}.git"
+                    sh "git clone https://github.com/bverad/${projectName}.git"
                     sh "cd ${projectName}; git checkout ${branch};git rev-parse --verify HEAD"
                     sh "cd ${projectName}; git checkout ${branch};git pull"
                     sh "cd ${projectName}; ls -la"
@@ -48,16 +48,6 @@ pipeline {
             }
 		}
 
-//		stage('build') {
-//			steps {
-//			    withNPM(npmrcConfig:'30e6eabe-30bf-4eb5-884f-861fc4fe5b6e') {
-//                echo "Performing npm build..."
-//                sh 'cd mp-frontend; npm install'
-//                sh 'cd mp-frontend; npm run build'
-//            }
-
-//			}
-//		}
 		
 		stage('build') {
 			steps {
@@ -83,28 +73,56 @@ pipeline {
 						// Crear directorio para reportes
 						sh "mkdir -p ${projectName}/reports"
 						
-						// Ejecutar pruebas y generar reportes
+						// Crear archivo .env temporal para pruebas
+						sh """echo 'OPENAI_API_KEY=sk-test-mock-key-123456789
+OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_TEMPERATURE=0.7
+TESTING=true
+DEBUG=true
+PORT=5000
+USERNAME=test_user
+PASSWORD=test_password
+EMPRESA_ID=1
+APP_ENV=testing
+PYTHONPATH=/app
+LOG_LEVEL=DEBUG
+CACHE_TTL=3600
+MAX_TOKENS=2000
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+MODEL_NAME=gpt-3.5-turbo
+EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
+						
+						// Ejecutar pruebas dentro del contenedor
 						def testOutput = sh(
 							script: """
-								cd ${projectName}
-								python -m pytest tests/ ${PYTEST_ADDOPTS}
+								docker run --rm -v \$(pwd)/${projectName}:/app ${projectName}:latest python -m pytest tests/ ${PYTEST_ADDOPTS}
 							""",
 							returnStdout: true
 						)
 						
 						// Obtener resultado de cobertura
 						def coverageOutput = sh(
-							script: "cd ${projectName} && coverage report",
+							script: """
+								docker run --rm -v \$(pwd)/${projectName}:/app ${projectName}:latest coverage report
+							""",
 							returnStdout: true
 						)
 						
 						// Extraer porcentaje de cobertura
 						def coverageMatch = (coverageOutput =~ /TOTAL.*?(\d+)%/)
 						if (coverageMatch) {
-							testResults.coverage = coverageMatch[0][1] as Integer
-							if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD as Integer) {
+							testResults.coverage = coverageMatch[0][1].toInteger()
+							if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD.toInteger()) {
 								error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
 							}
+						} else {
+							error "No se pudo obtener el porcentaje de cobertura del reporte"
+						}
+						
+						// Verificar que el directorio de reportes existe
+						if (!fileExists("${projectName}/reports")) {
+							error "El directorio de reportes no existe"
 						}
 						
 						// Archivar reportes
@@ -133,6 +151,9 @@ pipeline {
 						testResults.failed = true
 						testResults.error = e.getMessage()
 						error "Error en las pruebas: ${e.getMessage()}"
+					} finally {
+						// Limpiar archivo .env temporal
+						sh "rm -f ${projectName}/.env"
 					}
 				}
 
@@ -140,24 +161,17 @@ pipeline {
 				script {      
 					// requires SonarQube Scanner 2.8+
 					scannerHome = tool 'SonarQubeScanner'
-                    withSonarQubeEnv('SonarQubeAIT') {
-                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.sources=${projectName}/ -Dsonar.host.url=${sonarQube} -Dsonar.projectKey=${projectName} -Dsonar.projectName=${projectName} -Dsonar.projectVersion=${projectVersion} -Dsonar.language=js"
-                    }
+					withSonarQubeEnv('SonarQubeAIT') {
+						sh "${scannerHome}/bin/sonar-scanner -Dsonar.sources=${projectName}/ -Dsonar.host.url=${sonarQube} -Dsonar.projectKey=${projectName} -Dsonar.projectName=${projectName} -Dsonar.projectVersion=${projectVersion} -Dsonar.language=js"
+					}
 
-                    echo "trivy evaluation"
-                    
-                    sh "trivy fs --format template --template '@/home/jenkins/templates/html.tpl' --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL --exit-code 0 -o trivy-report.html ./"
-
-
-                }
-                
-     
+					echo "trivy evaluation"
+					sh "trivy fs --format template --template '@/home/jenkins/templates/html.tpl' --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL --exit-code 0 -o trivy-report.html ./"
+				}
 			}
-			
-			
 		}
 		
-		           stage('docker push') {
+        stage('docker push') {
 			steps {
 			    script{
 			        echo "docker push nexus-ait"

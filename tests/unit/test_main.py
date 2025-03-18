@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 import os
 import yaml
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from main import app, lifespan, run_app
 
 # Configuración de fixtures
@@ -35,6 +35,25 @@ def mock_settings():
     mock = MagicMock()
     mock.PORT = 5000
     mock.DEBUG = True
+    mock.TESTING = True
+    return mock
+
+@pytest.fixture
+def mock_llm_service():
+    """
+    Fixture that provides a mock LLM service for testing.
+    """
+    mock = MagicMock()
+    mock.testing = True
+    return mock
+
+@pytest.fixture
+def mock_licitacion_service():
+    """
+    Fixture that provides a mock LicitacionService for testing.
+    """
+    mock = MagicMock()
+    mock.testing = True
     return mock
 
 class TestMainApplication:
@@ -160,7 +179,9 @@ class TestMainApplication:
             assert config.port == 5000
             assert config.reload == True
 
-    def test_get_licitacion_service(self):
+    @patch("main.LLMService")
+    @patch("main.LicitacionService")
+    def test_get_licitacion_service(self, mock_licitacion_service_class, mock_llm_service_class, mock_llm_service, mock_licitacion_service):
         """
         Test LicitacionService dependency injection.
         
@@ -168,10 +189,19 @@ class TestMainApplication:
         - The service is properly instantiated
         - Dependencies are correctly injected
         """
+        # Configurar los mocks
+        mock_llm_service_class.return_value = mock_llm_service
+        mock_licitacion_service_class.return_value = mock_licitacion_service
+        
         from main import get_licitacion_service
         service = get_licitacion_service()
+        
+        # Verificar que se crearon los servicios con testing=True
+        mock_llm_service_class.assert_called_once_with(testing=True)
+        mock_licitacion_service_class.assert_called_once_with(mock_llm_service, testing=True)
+        
         assert service is not None
-        assert hasattr(service, 'llm_service')
+        assert service == mock_licitacion_service
 
     @patch("fastapi.staticfiles.StaticFiles")
     def test_static_files_mount(self, mock_static_files):

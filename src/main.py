@@ -63,8 +63,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(router)
 
 # Inicializar servicios
-llm_service = LLMService()
-licitacion_service = LicitacionService(llm_service)
+llm_service = LLMService(testing=True)
+licitacion_service = LicitacionService(llm_service, testing=True)
 
 @app.get("/")
 async def root():
@@ -80,7 +80,8 @@ async def root_options():
 
 # Inyección de dependencias
 def get_licitacion_service():
-    return LicitacionService(llm_service)
+    llm_service = LLMService(testing=True)
+    return LicitacionService(llm_service, testing=True)
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():

@@ -27,21 +27,27 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.fixture(autouse=True)
 def setup_test_env():
     """Configura el entorno de pruebas"""
-    os.environ["TESTING"] = "1"
+    # Configurar variables de entorno para pruebas
+    os.environ["TESTING"] = "true"
     os.environ["OPENAI_API_KEY"] = "test-key-123"
-    os.environ["DEBUG"] = "True"
+    os.environ["DEBUG"] = "true"
     os.environ["PORT"] = "5000"
     os.environ["USERNAME"] = "test_user"
     os.environ["PASSWORD"] = "test_password"
     os.environ["EMPRESA_ID"] = "1"
+    os.environ["PYTHONPATH"] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Crear directorios necesarios si no existen
+    os.makedirs("reports", exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
+    os.makedirs("static", exist_ok=True)
+    
     yield
-    os.environ.pop("TESTING", None)
-    os.environ.pop("OPENAI_API_KEY", None)
-    os.environ.pop("DEBUG", None)
-    os.environ.pop("PORT", None)
-    os.environ.pop("USERNAME", None)
-    os.environ.pop("PASSWORD", None)
-    os.environ.pop("EMPRESA_ID", None)
+    
+    # Limpiar variables de entorno después de las pruebas
+    env_vars = ["TESTING", "OPENAI_API_KEY", "DEBUG", "PORT", "USERNAME", "PASSWORD", "EMPRESA_ID"]
+    for var in env_vars:
+        os.environ.pop(var, None)
 
 @pytest.fixture(scope="session")
 def test_project_root() -> Path:
@@ -146,9 +152,11 @@ def mock_env_vars(monkeypatch):
     Configura variables de entorno comunes utilizadas en las pruebas.
     """
     monkeypatch.setenv("PORT", "5000")
-    monkeypatch.setenv("DEBUG", "True")
+    monkeypatch.setenv("DEBUG", "true")
     monkeypatch.setenv("EMPRESA_ID", "1")
     monkeypatch.setenv("OPENAI_API_KEY", "test_key")
+    monkeypatch.setenv("TESTING", "true")
+    monkeypatch.setenv("PYTHONPATH", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @pytest.fixture
 def mock_logger():

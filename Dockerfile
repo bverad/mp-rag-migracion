@@ -25,13 +25,18 @@ RUN pip list | grep -E "langchain|openai|tiktoken|fastapi|uvicorn"
 # Copiar el código fuente
 COPY . .
 
-# Crear directorio para logs
-RUN mkdir -p /app/logs && chmod 777 /app/logs
+# Crear directorios necesarios
+RUN mkdir -p /app/logs && \
+    mkdir -p /app/reports && \
+    mkdir -p /app/static && \
+    chmod -R 777 /app/logs /app/reports /app/static
 
 # Variables de entorno
 ENV APP_ENV=production
 ENV PYTHONPATH=/app
 ENV PORT=5000
+ENV TESTING=false
+ENV DEBUG=false
 
 # Puerto
 EXPOSE 5000

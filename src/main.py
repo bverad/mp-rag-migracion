@@ -80,7 +80,13 @@ async def root_options():
 
 # Inyección de dependencias
 def get_licitacion_service():
-    llm_service = LLMService(testing=True)
+    """
+    Función para obtener una instancia de LicitacionService.
+    Se asegura de que los servicios se inicialicen con el modo testing correcto.
+    """
+    global llm_service
+    if not llm_service:
+        llm_service = LLMService(testing=True)
     return LicitacionService(llm_service, testing=True)
 
 @app.get("/docs", include_in_schema=False)
@@ -114,6 +120,19 @@ async def get_openapi_schema():
         description=app.description,
         routes=app.routes
     )
+
+# Asegurar que los servicios se inicialicen correctamente
+@app.on_event("startup")
+async def startup_event():
+    """
+    Evento de inicio de la aplicación.
+    Asegura que los servicios se inicialicen correctamente.
+    """
+    global llm_service, licitacion_service
+    if not llm_service:
+        llm_service = LLMService(testing=True)
+    if not licitacion_service:
+        licitacion_service = LicitacionService(llm_service, testing=True)
 
 def run_app():
     """

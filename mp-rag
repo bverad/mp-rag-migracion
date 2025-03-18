@@ -93,6 +93,9 @@ CHUNK_OVERLAP=200
 MODEL_NAME=gpt-3.5-turbo
 EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 						
+						// Asegurar permisos de ejecución en el script de tests
+						sh "chmod +x ${projectName}/scripts/run_tests.sh"
+						
 						// Ejecutar pruebas dentro del contenedor
 						def testOutput = sh(
 							script: """

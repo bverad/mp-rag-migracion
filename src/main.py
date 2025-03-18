@@ -63,8 +63,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(router)
 
 # Inicializar servicios
-llm_service = LLMService(testing=True)
-licitacion_service = LicitacionService(llm_service, testing=True)
+llm_service = None
+licitacion_service = None
 
 @app.get("/")
 async def root():
@@ -84,9 +84,7 @@ def get_licitacion_service():
     Función para obtener una instancia de LicitacionService.
     Se asegura de que los servicios se inicialicen con el modo testing correcto.
     """
-    global llm_service
-    if not llm_service:
-        llm_service = LLMService(testing=True)
+    llm_service = LLMService(testing=True)
     return LicitacionService(llm_service, testing=True)
 
 @app.get("/docs", include_in_schema=False)
@@ -129,10 +127,8 @@ async def startup_event():
     Asegura que los servicios se inicialicen correctamente.
     """
     global llm_service, licitacion_service
-    if not llm_service:
-        llm_service = LLMService(testing=True)
-    if not licitacion_service:
-        licitacion_service = LicitacionService(llm_service, testing=True)
+    llm_service = LLMService(testing=True)
+    licitacion_service = LicitacionService(llm_service, testing=True)
 
 def run_app():
     """

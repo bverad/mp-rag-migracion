@@ -17,17 +17,39 @@ import logging
 # Configuración del logger
 logger = logging.getLogger(__name__)
 
+# Variables globales para servicios
+llm_service = None
+licitacion_service = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manejador del ciclo de vida de la aplicación
+    Manejador del ciclo de vida de la aplicación.
+    Inicializa los servicios y recursos necesarios.
     """
+    global llm_service, licitacion_service
+    
     # Configuración al inicio
     setup_logging()
     logger.info("Iniciando aplicación...")
+    
+    # Inicializar servicios
+    try:
+        llm_service = LLMService(testing=True)
+        licitacion_service = LicitacionService(llm_service, testing=True)
+        logger.info("Servicios inicializados correctamente")
+    except Exception as e:
+        logger.error(f"Error al inicializar servicios: {str(e)}")
+        raise
+    
     yield
+    
     # Limpieza al cierre
-    logger.info("Cerrando aplicación...")
+    try:
+        logger.info("Cerrando aplicación...")
+        # Aquí puedes agregar código de limpieza si es necesario
+    except Exception as e:
+        logger.error(f"Error al cerrar la aplicación: {str(e)}")
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -53,7 +75,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=600  # Cache preflight requests for 10 minutes
+    max_age=600
 )
 
 # Montar archivos estáticos
@@ -61,10 +83,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Incluir rutas
 app.include_router(router)
-
-# Inicializar servicios
-llm_service = None
-licitacion_service = None
 
 @app.get("/")
 async def root():
@@ -78,14 +96,17 @@ async def root_options():
     """
     return {}
 
-# Inyección de dependencias
 def get_licitacion_service():
     """
     Función para obtener una instancia de LicitacionService.
     Se asegura de que los servicios se inicialicen con el modo testing correcto.
     """
-    llm_service = LLMService(testing=True)
-    return LicitacionService(llm_service, testing=True)
+    try:
+        llm_service = LLMService(testing=True)
+        return LicitacionService(llm_service, testing=True)
+    except Exception as e:
+        logger.error(f"Error al crear servicio de licitación: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al inicializar el servicio")
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
@@ -104,45 +125,43 @@ async def get_openapi_schema():
     """
     Endpoint que devuelve el esquema OpenAPI de la API
     """
-    # Leer el esquema desde el archivo YAML
-    yaml_path = os.path.join("docs", "openapi.yaml")
-    if os.path.exists(yaml_path):
-        with open(yaml_path, "r") as f:
-            yaml_content = yaml.safe_load(f)
-            return yaml_content
-    
-    # Si no existe el archivo YAML, generar el esquema dinámicamente
-    return get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes
-    )
-
-# Asegurar que los servicios se inicialicen correctamente
-@app.on_event("startup")
-async def startup_event():
-    """
-    Evento de inicio de la aplicación.
-    Asegura que los servicios se inicialicen correctamente.
-    """
-    global llm_service, licitacion_service
-    llm_service = LLMService(testing=True)
-    licitacion_service = LicitacionService(llm_service, testing=True)
+    try:
+        # Leer el esquema desde el archivo YAML
+        yaml_path = os.path.join("docs", "openapi.yaml")
+        if os.path.exists(yaml_path):
+            with open(yaml_path, "r") as f:
+                yaml_content = yaml.safe_load(f)
+                return yaml_content
+        
+        # Si no existe el archivo YAML, generar el esquema dinámicamente
+        return get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes
+        )
+    except Exception as e:
+        logger.error(f"Error al generar esquema OpenAPI: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al generar documentación")
 
 def run_app():
     """
     Función principal para ejecutar la aplicación
     """
-    config = uvicorn.Config(
-        app=app,
-        host="0.0.0.0",  # Host por defecto para permitir conexiones externas
-        port=int(settings.PORT),  # Aseguramos que el puerto sea un entero
-        log_level="info",
-        reload=settings.DEBUG
-    )
-    server = uvicorn.Server(config)
-    server.run()
+    try:
+        config = uvicorn.Config(
+            app=app,
+            host="0.0.0.0",
+            port=int(settings.PORT),
+            log_level="info",
+            reload=settings.DEBUG,
+            workers=1  # Aseguramos un solo worker para evitar problemas de concurrencia
+        )
+        server = uvicorn.Server(config)
+        server.run()
+    except Exception as e:
+        logger.error(f"Error al iniciar la aplicación: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     run_app()

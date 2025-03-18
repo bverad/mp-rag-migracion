@@ -41,5 +41,12 @@ ENV DEBUG=false
 # Puerto
 EXPOSE 5000
 
-# Comando para ejecutar la aplicación con uvicorn
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5000"] 
+# Script para ejecutar tests
+COPY scripts/run_tests.sh /app/scripts/run_tests.sh
+RUN chmod +x /app/scripts/run_tests.sh
+
+# Comando por defecto para ejecutar la aplicación
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "5000"]
+
+# Para ejecutar tests usar:
+# docker run --rm -v ${PWD}:/app imagen:tag ./scripts/run_tests.sh 

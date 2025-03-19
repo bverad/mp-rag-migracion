@@ -12,7 +12,6 @@ htmlcov/
 venv/
 env/
 .env
-.env.*
 !.env.example
 
 # Caché de Python

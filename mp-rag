@@ -70,31 +70,27 @@ pipeline {
 				script {
 					echo "Ejecutando pruebas unitarias y de cobertura"
 					try {
-						// Crear directorio para reportes
+						// Crear directorios para reportes
 						sh """
 							mkdir -p ${projectName}/reports/coverage
 							mkdir -p ${projectName}/reports/trivy
 						"""
 						
-						// Crear archivo .env temporal para pruebas
-						sh """echo 'OPENAI_API_KEY=sk-test-mock-key-123456789
-OPENAI_MODEL=gpt-3.5-turbo
-OPENAI_TEMPERATURE=0.7
-TESTING=true
-DEBUG=true
-PORT=5000
-USERNAME=test_user
-PASSWORD=test_password
-EMPRESA_ID=1
-APP_ENV=testing
-PYTHONPATH=/app
-LOG_LEVEL=DEBUG
-CACHE_TTL=3600
-MAX_TOKENS=2000
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-MODEL_NAME=gpt-3.5-turbo
-EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
+						// Verificar y copiar archivo de variables de entorno para tests
+						sh """
+							if [ ! -f "${projectName}/tests/.env.test" ]; then
+								echo "Error: Archivo .env.test no encontrado en ${projectName}/tests/"
+								exit 1
+							fi
+							echo "Copiando archivo .env.test a .env..."
+							cp ${projectName}/tests/.env.test ${projectName}/.env
+							if [ ! -f "${projectName}/.env" ]; then
+								echo "Error: No se pudo copiar el archivo .env.test"
+								exit 1
+							fi
+							echo "Archivo .env creado correctamente"
+							cat ${projectName}/.env
+						"""
 						
 						// Asegurar permisos de ejecución en el script de tests
 						sh "chmod +x ${projectName}/scripts/run_tests.sh"
@@ -109,58 +105,42 @@ EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 							returnStdout: true
 						).trim()
 						
-						// Extraer porcentaje de cobertura de manera más simple
+						// Procesar resultados de cobertura
 						def coverageOutput = sh(
 							script: """
-								echo '${testOutput}' > coverage_output.txt
-								COVERAGE=\$(cat coverage_output.txt | grep "TOTAL" | awk '{print \$4}' | head -n 1 | tr -d '%')
-								if [ -z "\$COVERAGE" ]; then
-									COVERAGE=\$(cat coverage_output.txt | grep "Required test coverage" | grep -o '[0-9]\\+' | head -n 1)
-								fi
-								echo "\$COVERAGE"
-								rm coverage_output.txt
+								cat ${projectName}/reports/coverage/coverage.txt | grep "TOTAL" | awk '{print \$4}' | tr -d '%'
 							""",
 							returnStdout: true
 						).trim()
 						
 						if (coverageOutput?.trim()) {
-							try {
-								testResults.coverage = coverageOutput.trim().toInteger()
-								echo "Cobertura detectada: ${testResults.coverage}%"
-								
-								if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD.toInteger()) {
-									error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
-								}
-							} catch (NumberFormatException e) {
-								error "Error al procesar el porcentaje de cobertura: ${coverageOutput}"
+							testResults.coverage = coverageOutput.trim().toInteger()
+							echo "Cobertura detectada: ${testResults.coverage}%"
+							
+							if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD.toInteger()) {
+								error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
 							}
 						} else {
 							error "No se pudo obtener el porcentaje de cobertura del reporte"
 						}
 						
-						// Verificar que el directorio de reportes existe
+						// Verificar y archivar reportes
 						if (!fileExists("${projectName}/reports")) {
 							error "El directorio de reportes no existe"
 						}
 						
-						// Archivar reportes como artefactos
 						archiveArtifacts(
-							artifacts: [
-								"${projectName}/reports/**/*",
-								"${projectName}/reports/coverage/**/*"
-							].join(','),
+							artifacts: "${projectName}/reports/**/*",
 							fingerprint: true,
 							allowEmptyArchive: false
 						)
 						
-						// Notificar en la consola la ubicación de los reportes
 						echo """
-						🔍 Reportes generados:
-						- Reporte de pruebas: ${env.BUILD_URL}artifact/${projectName}/reports/report.html
-						- Reporte de cobertura: ${env.BUILD_URL}artifact/${projectName}/reports/coverage/index.html
+						🧪 Reportes generados:
+						📊 Reporte de pruebas: ${env.BUILD_URL}artifact/${projectName}/reports/report.html
+						📈 Reporte de cobertura: ${env.BUILD_URL}artifact/${projectName}/reports/coverage/index.html
 						"""
 						
-						// Guardar los resultados para el mensaje de Slack
 						testResults.reportUrls = [
 							tests: "${env.BUILD_URL}artifact/${projectName}/reports/report.html",
 							coverage: "${env.BUILD_URL}artifact/${projectName}/reports/coverage/index.html"

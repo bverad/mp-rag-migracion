@@ -229,30 +229,31 @@ EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 						
 						// Ejecutar Trivy para generar el reporte JSON (para conteo preciso)
 						sh """
-							cd ${projectName} && \
-							trivy fs \
-							--format json \
-							--ignore-unfixed \
-							--severity MEDIUM,HIGH,CRITICAL \
-							--exit-code 0 \
-							-o reports/trivy/report.json \
+							cd ${projectName} && \\
+							trivy fs \\
+							--format json \\
+							--ignore-unfixed \\
+							--severity LOW,MEDIUM,HIGH,CRITICAL \\
+							--exit-code 0 \\
+							-o reports/trivy/report.json \\
 							requirements.txt
 						"""
 						
 						// Ejecutar Trivy y guardar la salida en formato texto
 						sh """
-							cd ${projectName} && \
-							trivy fs \
-							--no-progress \
-							--ignore-unfixed \
+							cd ${projectName} && \\
+							trivy fs \\
+							--no-progress \\
+							--ignore-unfixed \\
+							--severity LOW,MEDIUM,HIGH,CRITICAL \\
 							requirements.txt > reports/trivy/report.txt
 						"""
 						
 						// Convertir el reporte de texto a HTML con formato
 						sh """
-							cd ${projectName} && \
-							echo '<pre style="background-color: white; color: black; padding: 10px; font-family: monospace;">' > reports/trivy/report.html && \
-							cat reports/trivy/report.txt >> reports/trivy/report.html && \
+							cd ${projectName} && \\
+							echo '<pre style="background-color: white; color: black; padding: 10px; font-family: monospace;">' > reports/trivy/report.html && \\
+							cat reports/trivy/report.txt >> reports/trivy/report.html && \\
 							echo '</pre>' >> reports/trivy/report.html
 						"""
 						
@@ -271,12 +272,18 @@ EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 							script: """cd ${projectName} && cat reports/trivy/report.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length'""",
 							returnStdout: true
 						).trim().toInteger()
+
+						def lowCount = sh(
+							script: """cd ${projectName} && cat reports/trivy/report.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="LOW")] | length'""",
+							returnStdout: true
+						).trim().toInteger()
 						
 						// Guardar resultados
 						testResults.trivy = [
 							CRITICAL: criticalCount,
 							HIGH: highCount,
 							MEDIUM: mediumCount,
+							LOW: lowCount,
 							reportUrl: "${env.BUILD_URL}artifact/${projectName}/reports/trivy/report.html"
 						]
 						
@@ -292,6 +299,7 @@ EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 						- Critical: ${testResults.trivy.CRITICAL}
 						- High: ${testResults.trivy.HIGH}
 						- Medium: ${testResults.trivy.MEDIUM}
+						- Low: ${testResults.trivy.LOW}
 						- Reporte: ${testResults.trivy.reportUrl}
 						"""
 						
@@ -301,6 +309,7 @@ EMBEDDING_MODEL=text-embedding-ada-002' > ${projectName}/.env"""
 							CRITICAL: 'N/A',
 							HIGH: 'N/A',
 							MEDIUM: 'N/A',
+							LOW: 'N/A',
 							error: e.getMessage()
 						]
 					}
@@ -496,10 +505,12 @@ def getBlockSlackMessage(projectName, projectVersion, status, testResults, branc
             "text": [
                 "type": "mrkdwn",
                 "text": "*Resumen de Vulnerabilidades*\n" +
-                       "• Críticas: ${testResults.trivy.CRITICAL ?: 0}\n" +
-                       "• Altas: ${testResults.trivy.HIGH ?: 0}\n" +
-                       "• Medias: ${testResults.trivy.MEDIUM ?: 0}\n" +
-                       "🔍 <${testResults.trivy.reportUrl}|Ver Reporte Completo>"
+                       "🔴 Críticas: ${testResults.trivy.CRITICAL ?: 0}\n" +
+                       "🟠 Altas: ${testResults.trivy.HIGH ?: 0}\n" +
+                       "🟡 Medias: ${testResults.trivy.MEDIUM ?: 0}\n" +
+                       "🔵 Bajas: ${testResults.trivy.LOW ?: 0}\n" +
+                       "🔍 <${testResults.trivy.reportUrl}|Ver Reporte Completo>" +
+                       (testResults.trivy.error ? "\n⚠️ Error: ${testResults.trivy.error}" : "")
             ]
         ])
         blocks.add([

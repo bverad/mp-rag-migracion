@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
       - name: mp-rag-migracion
-        image: docker.io/mpulgarf/mercadopublico-mp-rag:latest
+        image: docker.io/mpulgarf/mercadopublico-mp-rag-migracion:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000

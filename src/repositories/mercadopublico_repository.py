@@ -9,9 +9,15 @@ from models.licitacion import Licitacion, Documento
 import logging
 import aiohttp
 import json
+import ssl
 
 # Deshabilitar advertencias de SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Crear un contexto SSL que no verifique certificados
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
 
 logger = get_logger(__name__)
 
@@ -29,6 +35,9 @@ class MercadoPublicoRepository:
             "respuesta_ia": settings.OBTENER_RESPUESTA_IA_URL,
             "guardar_respuesta": settings.GUARDAR_RESPUESTA_IA_URL
         }
+        
+        # Configuración SSL para aiohttp
+        self.ssl_context = ssl_context
         
         if not testing:
             self._authenticate()
@@ -130,7 +139,7 @@ class MercadoPublicoRepository:
                 return {"test_code": ["test_path"]}
 
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                async with session.get(self.endpoints["documentos_procesados"]) as response:
+                async with session.get(self.endpoints["documentos_procesados"], ssl=self.ssl_context) as response:
                     if response.status == 200:
                         datos = await response.json()
                         
@@ -169,7 +178,7 @@ class MercadoPublicoRepository:
             }
 
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                async with session.get(self.endpoints["documento_content"], params=params) as response:
+                async with session.get(self.endpoints["documento_content"], params=params, ssl=self.ssl_context) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get("contenido", "")
@@ -192,7 +201,7 @@ class MercadoPublicoRepository:
             params = {"codigo_licitacion": codigo_licitacion}
             
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                async with session.get(self.endpoints["respuesta_ia"], params=params) as response:
+                async with session.get(self.endpoints["respuesta_ia"], params=params, ssl=self.ssl_context) as response:
                     if response.status == 200:
                         return await response.json()
                     elif response.status == 404:
@@ -219,7 +228,7 @@ class MercadoPublicoRepository:
             }
 
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                async with session.post(self.endpoints["guardar_respuesta"], json=data) as response:
+                async with session.post(self.endpoints["guardar_respuesta"], json=data, ssl=self.ssl_context) as response:
                     if response.status == 200:
                         logger.info(f"Respuesta IA guardada exitosamente para licitación {codigo_licitacion}")
                         return True

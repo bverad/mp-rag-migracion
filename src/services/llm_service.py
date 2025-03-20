@@ -112,19 +112,25 @@ class LLMService:
                 input_variables=["documentos", "pregunta"],
                 template="""Eres un asistente experto en análisis de licitaciones públicas. Tu objetivo es proporcionar respuestas precisas y útiles basadas en la documentación proporcionada.
 
-Basándote en los siguientes documentos de licitación:
+                Basándote en los siguientes documentos de licitación:
 
-{documentos}
+                {documentos}
 
-Por favor, responde la siguiente pregunta de manera detallada y específica:
-{pregunta}
+                Por favor, responde la siguiente pregunta de manera detallada y específica:
+                {pregunta}
 
-Asegúrate de:
-1. Basar tu respuesta solo en la información proporcionada en los documentos
-2. Citar específicamente las partes relevantes de los documentos, indicando el número de documento
-3. Si la información no está disponible en los documentos, indicarlo claramente
-4. Estructurar la respuesta de manera clara y concisa
-5. Proporcionar ejemplos específicos cuando sea posible"""
+                Asegúrate de:
+                1. Basar tu respuesta solo en la información proporcionada en los documentos
+                2. Citar específicamente las partes relevantes de los documentos, indicando el número de documento
+                3. Si la información no está disponible en los documentos, indicarlo claramente mediante el mensaje 'No existen datos dentro de los documentos de la licitacion', si no existen estos datos no agregar el mensaje con los archivos disponibles o utilizados.
+
+                4. Estructurar la respuesta de manera clara y concisa
+                5. Proporcionar ejemplos específicos cuando sea posible
+                6. En caso de que la pregunta NO este relacionada en nada con la informacion del contexto, se debe responder UNICAMENTE con 'No se puede responder a esta pregunta con la informacion de la licitación'. Y NO añadir el mensaje con los archivos disponibles'
+
+                
+                """
+                
             )
             logger.info("✅ Templates de prompts configurados")
         except Exception as e:

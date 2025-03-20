@@ -62,20 +62,23 @@ app = FastAPI(
 )
 
 # Configurar CORS
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://testserver"
-]
+origins = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000").split(",")
+if os.getenv("ADDITIONAL_CORS_ORIGINS"):
+    origins.extend(os.getenv("ADDITIONAL_CORS_ORIGINS").split(","))
+
+# Asegurar que los orígenes estén limpios y sean únicos
+origins = list(set([origin.strip() for origin in origins if origin.strip()]))
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    #allow_origins=origins, #TODO: Descomentar para producción
+    allow_origins=["*"], #TODO: Comentar para producción    
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=600
+    max_age=3600  # Aumentado a 1 hora para mejor rendimiento
 )
 
 # Montar archivos estáticos

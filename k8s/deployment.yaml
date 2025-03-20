@@ -2,17 +2,19 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mp-rag-config
+  name: mp-rag-migracion-config
 data:
   API_BASE_URL: "https://backendlicitaciones.activeit.com"
   APP_ENV: "production"
   LOG_LEVEL: "INFO"
   PORT: "5000"
+  CORS_ORIGINS: "https://backendlicitaciones.activeit.com,https://licitaciones.activeit.com"
+  ADDITIONAL_CORS_ORIGINS: "https://api.activeit.com,https://admin.activeit.com"
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mp-rag-secrets
+  name: mp-rag-migracion-secrets
 type: Opaque
 data:
   OPENAI_API_KEY: "c2stcHJvai1tRmtmYUZFaXFoT3BwdXJGSnNROGhSZHJWSWltTjltcTJJRVhNa2JubGZKMUFITWswVjVQS01DUlpfczRCTlBoLUdqX3JFcFlxeFQzQmxia0ZKckFzcVM3UmFVZFYyc21wWFQyaVFqbWhMUkF1TXhyb1RzQVpMSURZV0UwQ203RHg4dGZSalpSa2tEUk4tYU1Md2ZzRVF4N3dlNEE="
@@ -20,9 +22,9 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mp-rag-deployment
+  name: mp-rag-migracion-deployment
   labels:
-    app: mp-rag
+    app: mp-rag-migracion
 spec:
   replicas: 1
   strategy:
@@ -32,11 +34,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: mp-rag
+      app: mp-rag-migracion
   template:
     metadata:
       labels:
-        app: mp-rag
+        app: mp-rag-migracion
       annotations:
         kubectl.kubernetes.io/restartedAt: "{{ timestamp }}"
     spec:
@@ -48,9 +50,9 @@ spec:
         - containerPort: 5000
         envFrom:
         - configMapRef:
-            name: mp-rag-config
+            name: mp-rag-migracion-config
         - secretRef:
-            name: mp-rag-secrets
+            name: mp-rag-migracion-secrets
         resources:
           requests:
             memory: "512Mi"
@@ -74,11 +76,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mp-rag-service
+  name: mp-rag-migracion-service
 spec:
   type: LoadBalancer
   selector:
-    app: mp-rag 
+    app: mp-rag-migracion 
   ports:
     - name: http
       protocol: TCP

@@ -7,11 +7,13 @@ route handling, and documentation endpoints.
 """
 
 import pytest
-from fastapi.testclient import TestClient
 import os
+from fastapi.testclient import TestClient
 import yaml
 from unittest.mock import patch, MagicMock, AsyncMock
 from main import app, lifespan, run_app
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 
 # Configuración de fixtures
 @pytest.fixture
@@ -80,17 +82,81 @@ class TestMainApplication:
         assert response.status_code == 200
         assert response.json() == {"message": "MP-RAG API - Bienvenido al servicio de procesamiento de licitaciones"}
 
-    def test_cors_middleware(self, test_client):
+    def test_cors_middleware(self, test_client, monkeypatch):
         """
         Test CORS middleware configuration.
         
         Verifies that:
-        - CORS headers are properly set
-        - Allowed origins are correctly configured
+        - CORS headers are properly set for development mode (allow_origins=["*"])
+        - CORS headers are properly set for production mode (specific origins)
         """
-        response = test_client.options("/", headers={"Origin": "http://localhost:3000"})
+        # Caso 1: Prueba con configuración de desarrollo (allow_origins=["*"])
+        response = test_client.options("/", headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        })
+        assert response.status_code == 200
+        # En desarrollo, todos los orígenes están permitidos
+        assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+        assert response.headers["access-control-allow-credentials"] == "true"
+        assert "access-control-allow-methods" in response.headers
+        assert "POST" in response.headers["access-control-allow-methods"]
+        assert response.headers["access-control-allow-headers"] == "content-type"
+        
+        # Caso 2: Prueba con otro origen en desarrollo
+        response = test_client.options("/", headers={
+            "Origin": "https://example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        })
+        assert response.status_code == 200
+        # En desarrollo, todos los orígenes están permitidos
+        assert response.headers["access-control-allow-origin"] == "https://example.com"
+        assert response.headers["access-control-allow-headers"] == "content-type"
+        
+        # Caso 3: Prueba de configuración de producción con una nueva instancia
+        test_app = FastAPI()
+        
+        # Configurar CORS para la nueva instancia
+        test_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://localhost:3000", "https://api.example.com"],
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            allow_headers=["*"],
+            expose_headers=["*"],
+            max_age=3600
+        )
+        
+        @test_app.get("/")
+        async def test_root():
+            return {"message": "test"}
+            
+        @test_app.options("/")
+        async def test_root_options():
+            return {}
+        
+        test_client_prod = TestClient(test_app)
+        
+        # Probar con un origen permitido en producción
+        response = test_client_prod.options("/", headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        })
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+        assert "POST" in response.headers["access-control-allow-methods"]
+        assert response.headers["access-control-allow-headers"] == "content-type"
+        
+        # Probar con un origen no permitido en producción
+        response = test_client_prod.options("/", headers={
+            "Origin": "http://malicious-site.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        })
+        assert "access-control-allow-origin" not in response.headers
 
     def test_custom_swagger_ui(self, test_client):
         """

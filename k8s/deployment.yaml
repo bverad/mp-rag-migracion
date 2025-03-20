@@ -43,7 +43,7 @@ spec:
         kubectl.kubernetes.io/restartedAt: "{{ timestamp }}"
     spec:
       containers:
-      - name: mp-rag
+      - name: mp-rag-migracion
         image: docker.io/mpulgarf/mercadopublico-mp-rag:latest
         imagePullPolicy: Always
         ports:
@@ -93,7 +93,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: mp-rag-migracion 
+    app: mp-rag-migracion
   ports:
     - name: http
       protocol: TCP

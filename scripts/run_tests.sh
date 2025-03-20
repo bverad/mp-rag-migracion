@@ -6,7 +6,7 @@ export PYTHONPATH=/app
 export DEBUG=true
 
 # Crear directorios necesarios
-mkdir -p /app/reports
+mkdir -p /app/reports/coverage
 mkdir -p /app/logs
 mkdir -p /app/static
 
@@ -25,8 +25,8 @@ python -m pytest tests/ \
 # Verificar el resultado
 exit_code=$?
 
-# Generar reporte de cobertura
-coverage report
+# Generar reporte de cobertura en formato texto
+coverage report > /app/reports/coverage/coverage.txt
 
 # Salir con el código de estado de los tests
 exit $exit_code 

@@ -76,20 +76,9 @@ pipeline {
 							mkdir -p ${projectName}/reports/trivy
 						"""
 						
-						// Verificar y copiar archivo de variables de entorno para tests
+						// Copiar archivo .env.test existente
 						sh """
-							if [ ! -f "${projectName}/tests/.env.test" ]; then
-								echo "Error: Archivo .env.test no encontrado en ${projectName}/tests/"
-								exit 1
-							fi
-							echo "Copiando archivo .env.test a .env..."
 							cp ${projectName}/tests/.env.test ${projectName}/.env
-							if [ ! -f "${projectName}/.env" ]; then
-								echo "Error: No se pudo copiar el archivo .env.test"
-								exit 1
-							fi
-							echo "Archivo .env creado correctamente"
-							cat ${projectName}/.env
 						"""
 						
 						// Asegurar permisos de ejecución en el script de tests

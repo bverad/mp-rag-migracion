@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 # Configurar variables de entorno para testing
 export TESTING=true
@@ -14,7 +14,7 @@ mkdir -p /app/static
 # Cambiar al directorio de la aplicación
 cd /app
 
-# Configurar coverage para usar rutas relativas y mostrar todos los archivos
+# Configurar coverage para usar rutas relativas
 echo "[run]
 source = src/
 relative_files = True
@@ -41,7 +41,12 @@ exclude_lines =
     pass
     raise ImportError" > .coveragerc
 
-# Ejecutar todos los tests con cobertura
+# Mostrar la configuración actual de coverage
+echo "=== Coverage Configuration ==="
+cat .coveragerc
+echo "==========================="
+
+# Ejecutar tests con cobertura detallada
 python -m pytest tests/ \
     --cov=src \
     --cov-report=xml:reports/coverage/coverage.xml \
@@ -50,20 +55,30 @@ python -m pytest tests/ \
     --cov-fail-under=80 \
     -v
 
-# Verificar el resultado
-exit_code=$?
+# Verificar que el archivo XML se generó correctamente
+echo "=== Verificando archivo XML de cobertura ==="
+ls -l reports/coverage/coverage.xml
+echo "=== Primeras líneas del archivo XML ==="
+head -n 20 reports/coverage/coverage.xml
+echo "==========================="
 
-# Generar reporte detallado de cobertura
-echo "=== Reporte Detallado de Cobertura ===" > /app/reports/coverage/coverage.txt
-coverage report --show-missing >> /app/reports/coverage/coverage.txt
-echo -e "\n=== Archivos incluidos en el análisis ===" >> /app/reports/coverage/coverage.txt
-coverage debug sys >> /app/reports/coverage/coverage.txt
+# Generar reporte detallado
+echo "=== Reporte Detallado de Cobertura ===" > reports/coverage/coverage.txt
+coverage report --show-missing >> reports/coverage/coverage.txt
+echo -e "\n=== Debug de Coverage ===" >> reports/coverage/coverage.txt
+coverage debug sys >> reports/coverage/coverage.txt
+coverage debug data >> reports/coverage/coverage.txt
 
 # Ejecutar pylint y guardar reporte
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
 
-# Ajustar las rutas en el reporte XML de cobertura
-sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
+# Ajustar las rutas en el reporte XML
+sed -i 's|/app/src/|src/|g' reports/coverage/coverage.xml
+
+# Verificar el resultado final
+echo "=== Verificación final del archivo XML ==="
+head -n 20 reports/coverage/coverage.xml
 
 # Salir con el código de estado de los tests
+exit_code=$?
 exit $exit_code 

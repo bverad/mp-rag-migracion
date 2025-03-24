@@ -165,27 +165,17 @@ pipeline {
 								-Dsonar.projectName=${projectName} \\
 								-Dsonar.projectVersion=${projectVersion} \\
 								-Dsonar.sources=src \\
-								-Dsonar.tests=tests \\
 								-Dsonar.host.url=${sonarQube} \\
 								-Dsonar.scm.provider=git \\
 								-Dsonar.language=python \\
-								-Dsonar.python.version=3.11 \\
-								-Dsonar.sourceEncoding=UTF-8 \\
+								-Dsonar.python.version=3 \\
 								-Dsonar.token=\${SONAR_AUTH_TOKEN} \\
 								-Dsonar.qualitygate.wait=true \\
 								-Dsonar.ws.timeout=300 \\
 								-Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
-								-Dsonar.test.inclusions=tests/**/*,src/tests/**/* \\
-								-Dsonar.test.exclusions=src/main.py,src/core/**,src/repositories/**,src/services/**,src/models/**,src/api/** \\
-								-Dsonar.coverage.exclusions=tests/**,**/__init__.py,**/__pycache__/**,**/test_*.py,src/tests/** \\
-								-Dsonar.exclusions=**/*.pyc,**/__pycache__/**,tests/**,reports/**,**/*.html,**/__init__.py,**/test_*.py \\
-								-Dsonar.python.xunit.reportPath=reports/junit.xml \\
-								-Dsonar.python.pylint.reportPath=reports/pylint.txt \\
-								-Dsonar.scm.exclusions.disabled=true \\
-								-Dsonar.working.directory=.scannerwork \\
-								-Dsonar.coverage.jacoco.xmlReportPaths= \\
-								-Dsonar.cpd.exclusions=tests/**/* \\
-								-Dsonar.verbose=true
+								-Dsonar.python.xunit.reportPath=reports/report.xml \\
+								-Dsonar.exclusions=tests/**/*,**/*_test.py,**/*.pyc,**/__pycache__/**,**/__init__.py \\
+								-Dsonar.coverage.exclusions=tests/**/*,**/*_test.py,**/__init__.py,**/__pycache__/**
 							"""
 						}
 						

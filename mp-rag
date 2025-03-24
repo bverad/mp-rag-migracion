@@ -74,6 +74,7 @@
                             sh """
                                 mkdir -p ${projectName}/reports/coverage
                                 mkdir -p ${projectName}/reports/trivy
+                                chmod -R 777 ${projectName}/reports
                             """
                             
                             // Copiar archivo .env.test existente
@@ -85,63 +86,73 @@
                             sh "chmod +x ${projectName}/scripts/run_tests.sh"
                             
                             // Ejecutar pruebas dentro del contenedor y generar reportes
-                            def testOutput = sh(
-                                script: """
-                                    cd ${projectName} && \\
-                                    docker run --rm \\
-                                    -v \$(pwd):/app \\
-                                    ${projectName}:latest ./scripts/run_tests.sh
-                                """,
-                                returnStdout: true
-                            ).trim()
-                            
-                            // Ajustar las rutas en el reporte XML de cobertura después de que se genere
                             sh """
                                 cd ${projectName} && \\
-                                sed -i 's|/app/src/|src/|g' reports/coverage/coverage.xml
+                                docker run --rm \\
+                                -v \$(pwd):/app \\
+                                ${projectName}:latest ./scripts/run_tests.sh
                             """
                             
-                            // Procesar resultados de cobertura
+                            // Verificar que los reportes existan
+                            if (!fileExists("${projectName}/reports/coverage/coverage.xml")) {
+                                error "No se generó el reporte XML de cobertura"
+                            }
+                            
+                            // Procesar resultados de cobertura usando el archivo coverage.txt
                             def coverageOutput = sh(
                                 script: """
                                     cd ${projectName} && \\
-                                    cat reports/coverage/coverage.txt | grep "TOTAL" | awk '{print \$4}' | tr -d '%'
+                                    if [ -f reports/coverage/coverage.txt ]; then
+                                        grep "TOTAL" reports/coverage/coverage.txt | awk '{gsub(/%/,"",$4); print \$4}'
+                                    else
+                                        echo "0"
+                                    fi
                                 """,
                                 returnStdout: true
                             ).trim()
                             
-                            if (coverageOutput?.trim()) {
-                                testResults.coverage = coverageOutput.trim().toInteger()
-                                echo "Cobertura detectada: ${testResults.coverage}%"
-                                
-                                if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD.toInteger()) {
-                                    error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
-                                }
-                            } else {
-                                error "No se pudo obtener el porcentaje de cobertura del reporte"
+                            // Convertir a número y validar
+                            def coverageValue = coverageOutput.toFloat()
+                            if (coverageValue <= 0 || coverageValue > 100) {
+                                error "Porcentaje de cobertura inválido: ${coverageValue}%"
                             }
                             
-                            // Verificar y archivar reportes
-                            if (!fileExists("${projectName}/reports")) {
-                                error "El directorio de reportes no existe"
+                            testResults.coverage = coverageValue
+                            echo "Cobertura detectada: ${testResults.coverage}%"
+                            
+                            if (testResults.coverage < env.TEST_COVERAGE_THRESHOLD.toInteger()) {
+                                error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
                             }
                             
+                            // Crear un índice HTML que redirija al reporte de cobertura
+                            sh """
+                                cd ${projectName}
+                                echo '<html><head><meta http-equiv="refresh" content="0; url=reports/coverage/html/index.html"></head></html>' > coverage_report.html
+                                chmod -R 755 reports/
+                                find reports/ -type f -exec chmod 644 {} \\;
+                            """
+                            
+                            // Archivar todos los reportes
                             archiveArtifacts(
-                                artifacts: "${projectName}/reports/**/*",
+                                artifacts: "${projectName}/reports/**/*,${projectName}/coverage_report.html",
                                 fingerprint: true,
                                 allowEmptyArchive: false
                             )
                             
+                            def coverageUrl = "${env.BUILD_URL}artifact/${projectName}/coverage_report.html"
+                            def testReportUrl = "${env.BUILD_URL}artifact/${projectName}/reports/report.html"
+                            
                             echo """
                             🧪 Reportes generados:
-                            📊 Reporte de pruebas: ${env.BUILD_URL}artifact/${projectName}/reports/report.html
-                            📈 Reporte de cobertura: ${env.BUILD_URL}artifact/${projectName}/reports/coverage/index.html
+                            📊 Reporte de pruebas: ${testReportUrl}
+                            📈 Reporte de cobertura: ${coverageUrl}
                             """
                             
                             testResults.reportUrls = [
-                                tests: "${env.BUILD_URL}artifact/${projectName}/reports/report.html",
-                                coverage: "${env.BUILD_URL}artifact/${projectName}/reports/coverage/index.html"
+                                tests: testReportUrl,
+                                coverage: coverageUrl
                             ]
+                            
                         } catch (Exception e) {
                             testResults.failed = true
                             testResults.error = e.getMessage()

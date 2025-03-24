@@ -16,7 +16,7 @@ cd /app
 
 # Listar todos los archivos Python antes de las pruebas
 echo "=== Archivos Python en el proyecto ==="
-find src -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -not -path "*/__pycache__/*"
+find src -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -not -path "*/__pycache__/*" | tee /app/reports/coverage/python_files.txt
 echo "==========================="
 
 # Limpiar archivos de cobertura anteriores
@@ -30,11 +30,7 @@ source = src
 branch = True
 data_file = .coverage
 relative_files = True
-omit =
-    */venv/*
-    */__pycache__/*
-    */tests/*
-    setup.py
+parallel = True
 
 [paths]
 source =
@@ -51,7 +47,7 @@ exclude_lines =
     raise ImportError
     def main()
     if TYPE_CHECKING:
-
+    
 [xml]
 output = reports/coverage/coverage.xml
 EOL
@@ -89,24 +85,20 @@ coverage report --show-missing | tee /app/reports/coverage/coverage.txt
 # Regenerar el reporte XML después de combinar
 coverage xml -o reports/coverage/coverage.xml
 
-# Verificar el contenido del reporte XML
-echo "=== Verificando reporte XML ==="
-if [ -f "reports/coverage/coverage.xml" ]; then
-    echo "El archivo XML existe"
-    ls -l reports/coverage/coverage.xml
-    echo "=== Primeras líneas del archivo XML ==="
-    head -n 20 reports/coverage/coverage.xml
-else
-    echo "ERROR: El archivo XML no existe"
-    echo "=== Contenido del directorio reports/coverage ==="
-    ls -la reports/coverage/
-    echo "=== Debug de coverage ==="
-    coverage debug sys
-    coverage debug data
-fi
+# Verificar la inclusión de todos los archivos Python
+echo "=== Verificando inclusión de archivos ==="
+total_files=$(cat /app/reports/coverage/python_files.txt | wc -l)
+covered_files=$(grep "<class" reports/coverage/coverage.xml | wc -l)
+echo "Total archivos Python: $total_files"
+echo "Archivos en reporte: $covered_files"
 
-# Ejecutar pylint
-cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
+if [ "$covered_files" -lt "$total_files" ]; then
+    echo "ADVERTENCIA: No todos los archivos están incluidos en el reporte"
+    echo "Archivos Python encontrados:"
+    cat /app/reports/coverage/python_files.txt
+    echo "Archivos en el reporte XML:"
+    grep "filename=" reports/coverage/coverage.xml | sed 's/.*filename="\([^"]*\)".*/\1/'
+fi
 
 # Si el archivo XML existe, ajustar las rutas
 if [ -f "/app/reports/coverage/coverage.xml" ]; then
@@ -117,9 +109,6 @@ if [ -f "/app/reports/coverage/coverage.xml" ]; then
     # Ajustamos las rutas
     sed -i 's|filename="/app/src/|filename="src/|g' reports/coverage/coverage.xml
     sed -i 's|filename="/app/|filename="|g' reports/coverage/coverage.xml
-    echo "=== Verificando rutas ajustadas ==="
-    echo "Primeras 5 líneas con 'filename':"
-    grep "filename=" reports/coverage/coverage.xml | head -n 5
     
     # Verificar que el archivo sigue siendo válido XML
     if ! python -c "import xml.etree.ElementTree as ET; ET.parse('reports/coverage/coverage.xml')"; then
@@ -130,9 +119,11 @@ fi
 
 # Mostrar resumen final
 echo "=== Resumen Final ==="
-echo "Archivos Python encontrados:"
-find src -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -not -path "*/__pycache__/*" | wc -l
 echo "Contenido del reporte de cobertura:"
 cat /app/reports/coverage/coverage.txt
+
+# Asegurar permisos correctos en los reportes
+chmod -R 755 /app/reports
+find /app/reports -type f -exec chmod 644 {} \;
 
 exit $exit_code 

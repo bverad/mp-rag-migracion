@@ -16,7 +16,9 @@ python -m pytest tests/ \
     --self-contained-html \
     --cov=src \
     --cov-report=html:reports/coverage \
+    --cov-report=xml:reports/coverage/coverage.xml \
     --cov-report=term-missing \
+    --junitxml=reports/junit.xml \
     -v \
     --tb=short \
     --capture=no \
@@ -27,6 +29,9 @@ exit_code=$?
 
 # Generar reporte de cobertura en formato texto
 coverage report > /app/reports/coverage/coverage.txt
+
+# Ejecutar pylint y guardar reporte
+pylint src/ --output-format=parseable > /app/reports/pylint.txt || true
 
 # Salir con el código de estado de los tests
 exit $exit_code 

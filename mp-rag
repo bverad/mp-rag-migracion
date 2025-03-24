@@ -156,16 +156,21 @@ pipeline {
 								-Dsonar.projectKey=${projectName} \\
 								-Dsonar.projectName=${projectName} \\
 								-Dsonar.projectVersion=${projectVersion} \\
-								-Dsonar.sources=. \\
+								-Dsonar.sources=src \\
+								-Dsonar.tests=tests \\
 								-Dsonar.host.url=${sonarQube} \\
 								-Dsonar.scm.provider=git \\
 								-Dsonar.language=python \\
-								-Dsonar.python.version=3 \\
+								-Dsonar.python.version=3.11 \\
+								-Dsonar.sourceEncoding=UTF-8 \\
 								-Dsonar.token=\${SONAR_AUTH_TOKEN} \\
 								-Dsonar.qualitygate.wait=true \\
 								-Dsonar.ws.timeout=300 \\
 								-Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
-								-Dsonar.python.xunit.reportPath=reports/report.xml
+								-Dsonar.coverage.exclusions=tests/**,**/__init__.py \\
+								-Dsonar.exclusions=**/*.pyc,**/__pycache__/**,tests/** \\
+								-Dsonar.python.xunit.reportPath=reports/junit.xml \\
+								-Dsonar.python.pylint.reportPath=reports/pylint.txt
 							"""
 						}
 						

@@ -13,10 +13,23 @@ mkdir -p /app/static
 # Cambiar al directorio de la aplicación
 cd /app
 
-# Configurar coverage para usar rutas relativas
+# Configurar coverage para usar rutas relativas y mostrar todos los archivos
 echo "[run]
 source = src/
-relative_files = True" > .coveragerc
+relative_files = True
+omit =
+    */tests/*
+    */__pycache__/*
+    */__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError" > .coveragerc
 
 # Ejecutar los tests con pytest
 python -m pytest tests/ \
@@ -35,8 +48,11 @@ python -m pytest tests/ \
 # Verificar el resultado
 exit_code=$?
 
-# Generar reporte de cobertura en formato texto
-coverage report > /app/reports/coverage/coverage.txt
+# Generar reporte detallado de cobertura
+echo "=== Reporte Detallado de Cobertura ===" > /app/reports/coverage/coverage.txt
+coverage report --show-missing >> /app/reports/coverage/coverage.txt
+echo -e "\n=== Archivos incluidos en el análisis ===" >> /app/reports/coverage/coverage.txt
+coverage debug sys >> /app/reports/coverage/coverage.txt
 
 # Ejecutar pylint y guardar reporte
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true

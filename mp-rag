@@ -174,14 +174,15 @@ pipeline {
 								-Dsonar.qualitygate.wait=true \\
 								-Dsonar.ws.timeout=300 \\
 								-Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
-								-Dsonar.python.xunit.reportPath=reports/junit.xml \\
+								-Dsonar.python.xunit.reportPath=reports/**/junit.xml \\
 								-Dsonar.python.xunit.skipDetails=false \\
 								-Dsonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/* \\
 								-Dsonar.test.inclusions=tests/unit/**/*,tests/integration/**/* \\
 								-Dsonar.test.exclusions=src/**/* \\
 								-Dsonar.python.file.suffixes=py \\
 								-Dsonar.sourceEncoding=UTF-8 \\
-								-Dsonar.verbose=true
+								-Dsonar.verbose=true \\
+								-Dsonar.log.level=DEBUG
 							"""
 						}
 						

@@ -207,6 +207,7 @@ pipeline {
 							url: "${sonarQube}/dashboard?id=${projectName}",
 							error: e.getMessage()
 						]
+						throw e
 					}
 				}
 			}
@@ -307,6 +308,7 @@ pipeline {
 							LOW: 'N/A',
 							error: e.getMessage()
 						]
+						throw e
 					}
 				}
 			}
@@ -366,17 +368,13 @@ pipeline {
 		    }
 		}
 
-        cleanup {
-           echo "Sending slack notification"
-           script {
-                echo "final status ${status}"
+        always {
+            script {
+                echo "Sending slack notification"
                 def slackResponse = slackSend(
                     color: "${status.equals('success') ? 'good' : 'danger'}", 
                     blocks: getBlockSlackMessage(projectName, projectVersion, status, testResults, branch)
                 )
-                
-                echo "Cleaning workspace"
-                cleanWs()
             }
         }
 	}

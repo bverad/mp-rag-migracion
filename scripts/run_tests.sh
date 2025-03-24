@@ -13,6 +13,11 @@ mkdir -p /app/static
 # Cambiar al directorio de la aplicación
 cd /app
 
+# Configurar coverage para usar rutas relativas
+echo "[run]
+source = src/
+relative_files = True" > .coveragerc
+
 # Ejecutar los tests con pytest
 python -m pytest tests/ \
     --html=reports/report.html \

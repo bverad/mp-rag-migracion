@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 # Configurar variables de entorno para testing
 export TESTING=true
@@ -18,19 +18,14 @@ cd /app
 echo "[run]
 source = src/
 relative_files = True
-include =
-    src/main.py
-    src/core/*.py
-    src/repositories/*.py
-    src/services/*.py
-    src/models/*.py
-    src/api/*.py
-omit =
-    */tests/*
-    */__pycache__/*
-    */__init__.py
-    */test_*.py
-    tests/*
+branch = True
+parallel = True
+concurrency = multiprocessing
+
+[paths]
+source =
+    src/
+    /app/src/
 
 [report]
 exclude_lines =
@@ -39,17 +34,26 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     pass
-    raise ImportError" > .coveragerc
+    raise ImportError
+
+[xml]
+output = reports/coverage/coverage.xml" > .coveragerc
 
 # Mostrar la configuración actual de coverage
 echo "=== Coverage Configuration ==="
 cat .coveragerc
 echo "==========================="
 
+# Listar archivos Python en src para verificar
+echo "=== Python files in src ==="
+find src -name "*.py" -not -path "*/\.*"
+echo "==========================="
+
 # Ejecutar todos los tests con cobertura
 echo "=== Ejecutando tests y generando reportes ==="
 python -m pytest tests/unit/ tests/integration/ \
     --cov=src \
+    --cov-config=.coveragerc \
     --cov-report=xml:reports/coverage/coverage.xml \
     --cov-report=html:reports/coverage/html \
     --cov-report=term-missing \
@@ -68,8 +72,22 @@ exit_code=$?
 echo "=== Reporte Detallado de Cobertura ===" > /app/reports/coverage/coverage.txt
 coverage report --show-missing >> /app/reports/coverage/coverage.txt
 
+# Mostrar el contenido del reporte para verificación
+echo "=== Contenido del reporte de cobertura ==="
+cat /app/reports/coverage/coverage.txt
+echo "========================================="
+
 # Ajustar las rutas en el reporte XML de cobertura
 sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
+
+# Verificar el contenido del XML
+echo "=== Verificación del archivo XML ==="
+echo "Primeras 20 líneas del XML:"
+head -n 20 /app/reports/coverage/coverage.xml
+echo "========================================="
+echo "Buscando entradas de servicios en el XML:"
+grep -A 2 "services/" /app/reports/coverage/coverage.xml || true
+echo "========================================="
 
 # Ejecutar pylint y guardar reporte
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true

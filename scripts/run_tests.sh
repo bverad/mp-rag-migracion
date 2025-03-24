@@ -24,6 +24,7 @@ echo "[run]
 source = src
 branch = True
 data_file = .coverage
+relative_files = True
 
 [report]
 exclude_lines =
@@ -35,8 +36,7 @@ exclude_lines =
     raise ImportError
 
 [xml]
-output = reports/coverage/coverage.xml
-relative_files = True" > .coveragerc
+output = reports/coverage/coverage.xml" > .coveragerc
 
 # Mostrar la configuración actual de coverage
 echo "=== Coverage Configuration ==="
@@ -53,19 +53,19 @@ python -m pytest tests/unit/ tests/integration/ \
     --cov=src \
     --cov-config=.coveragerc \
     --cov-branch \
-    --cov-report=xml:reports/coverage/coverage.xml \
+    --cov-report=xml \
     --cov-report=html:reports/coverage/html \
     --cov-report=term-missing \
     --html=reports/report.html \
     --self-contained-html \
     --junitxml=reports/junit.xml \
-    -v \
-    --tb=short \
-    --capture=no \
-    --log-cli-level=INFO
+    -v
 
 # Verificar el resultado
 exit_code=$?
+
+# Asegurarse que estamos en el directorio correcto
+cd /app
 
 # Generar y mostrar reporte detallado
 echo "=== Reporte Detallado de Cobertura ==="
@@ -76,8 +76,6 @@ echo "=== Verificando reporte XML ==="
 if [ -f "reports/coverage/coverage.xml" ]; then
     echo "El archivo XML existe"
     ls -l reports/coverage/coverage.xml
-    echo "Contenido del XML:"
-    cat reports/coverage/coverage.xml
 else
     echo "ERROR: El archivo XML no existe"
 fi
@@ -92,17 +90,21 @@ echo "Debug info guardada en /app/reports/coverage/debug.txt"
 echo "=== Estructura de directorios final ==="
 ls -R /app/reports/coverage/
 
-# Ajustar las rutas en el reporte XML
-echo "=== Ajustando rutas en el reporte XML ==="
-sed -i 's|filename="/app/|filename="|g' /app/reports/coverage/coverage.xml
-sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
+# Ajustar las rutas en el reporte XML si es necesario
+if [ -f "reports/coverage/coverage.xml" ]; then
+    echo "=== Ajustando rutas en el reporte XML ==="
+    # Reemplazar rutas absolutas con relativas
+    sed -i 's|filename="/app/src/|filename="src/|g' reports/coverage/coverage.xml
+    sed -i 's|filename="/app/|filename="|g' reports/coverage/coverage.xml
+fi
 
-# Ejecutar pylint y guardar reporte
+# Ejecutar pylint
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
 
-# Verificar el resultado final
-echo "=== Verificación final del archivo XML ==="
-head -n 20 /app/reports/coverage/coverage.xml
+# Mostrar contenido del reporte XML para verificación
+echo "=== Contenido del reporte XML ==="
+if [ -f "/app/reports/coverage/coverage.xml" ]; then
+    cat /app/reports/coverage/coverage.xml
+fi
 
-# Salir con el código de estado de los tests
 exit $exit_code 

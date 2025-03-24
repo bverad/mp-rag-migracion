@@ -1,8 +1,9 @@
 #!/bin/bash
+set -e
 
 # Configurar variables de entorno para testing
 export TESTING=true
-export PYTHONPATH=/app/src
+export PYTHONPATH=/app
 export DEBUG=true
 
 # Crear directorios necesarios
@@ -40,19 +41,14 @@ exclude_lines =
     pass
     raise ImportError" > .coveragerc
 
-# Ejecutar los tests con pytest
+# Ejecutar todos los tests con cobertura
 python -m pytest tests/ \
-    --html=reports/report.html \
-    --self-contained-html \
     --cov=src \
-    --cov-report=html:reports/coverage \
     --cov-report=xml:reports/coverage/coverage.xml \
+    --cov-report=html:reports/coverage/html \
     --cov-report=term-missing \
-    --junitxml=reports/junit.xml \
-    -v \
-    --tb=short \
-    --capture=no \
-    --log-cli-level=INFO
+    --cov-fail-under=80 \
+    -v
 
 # Verificar el resultado
 exit_code=$?

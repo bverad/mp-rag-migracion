@@ -151,11 +151,14 @@ pipeline {
 						sh "rm -f ${projectName}/.env"
 					}
 				}
-
-				echo "scanning code"
-				script {      
+			}
+		}
+		
+		stage('sonar analysis') {
+			steps {
+				script {
+					echo "scanning code"
 					try {
-						// requires SonarQube Scanner 2.8+
 						def scannerHome = tool 'SonarQubeScanner'
 						withSonarQubeEnv('SonarQubeAIT') {
 							sh """
@@ -205,7 +208,13 @@ pipeline {
 							error: e.getMessage()
 						]
 					}
-
+				}
+			}
+		}
+		
+		stage('trivy analysis') {
+			steps {
+				script {
 					echo "trivy evaluation"
 					try {
 						// Crear directorio para reportes

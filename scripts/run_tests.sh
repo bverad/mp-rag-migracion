@@ -14,13 +14,16 @@ mkdir -p /app/static
 # Cambiar al directorio de la aplicación
 cd /app
 
+# Listar todos los archivos Python antes de las pruebas
+echo "=== Archivos Python en el proyecto ==="
+find . -name "*.py" -not -path "*/\.*" -not -path "*/venv/*"
+echo "==========================="
+
 # Configurar coverage para usar rutas relativas
 echo "[run]
-source = src/
-relative_files = True
+source = src
 branch = True
-parallel = True
-concurrency = multiprocessing
+data_file = /app/reports/coverage/.coverage
 
 [paths]
 source =
@@ -44,16 +47,16 @@ echo "=== Coverage Configuration ==="
 cat .coveragerc
 echo "==========================="
 
-# Listar archivos Python en src para verificar
-echo "=== Python files in src ==="
-find src -name "*.py" -not -path "*/\.*"
-echo "==========================="
+# Limpiar archivos de cobertura anteriores
+rm -f .coverage*
+rm -f reports/coverage/*
 
-# Ejecutar todos los tests con cobertura
+# Ejecutar pytest con coverage
 echo "=== Ejecutando tests y generando reportes ==="
 python -m pytest tests/unit/ tests/integration/ \
     --cov=src \
     --cov-config=.coveragerc \
+    --cov-branch \
     --cov-report=xml:reports/coverage/coverage.xml \
     --cov-report=html:reports/coverage/html \
     --cov-report=term-missing \
@@ -68,26 +71,34 @@ python -m pytest tests/unit/ tests/integration/ \
 # Verificar el resultado
 exit_code=$?
 
-# Generar reporte detallado de cobertura
-echo "=== Reporte Detallado de Cobertura ===" > /app/reports/coverage/coverage.txt
-coverage report --show-missing >> /app/reports/coverage/coverage.txt
+# Generar y mostrar reporte detallado
+echo "=== Reporte Detallado de Cobertura ==="
+coverage report --show-missing | tee /app/reports/coverage/coverage.txt
 
-# Mostrar el contenido del reporte para verificación
-echo "=== Contenido del reporte de cobertura ==="
-cat /app/reports/coverage/coverage.txt
-echo "========================================="
+# Verificar el contenido del reporte XML
+echo "=== Verificando reporte XML ==="
+if [ -f "reports/coverage/coverage.xml" ]; then
+    echo "El archivo XML existe"
+    ls -l reports/coverage/coverage.xml
+    echo "Contenido del XML:"
+    cat reports/coverage/coverage.xml
+else
+    echo "ERROR: El archivo XML no existe"
+fi
 
-# Ajustar las rutas en el reporte XML de cobertura
+# Verificar archivos incluidos en la cobertura
+echo "=== Archivos incluidos en la cobertura ==="
+coverage debug sys > /app/reports/coverage/debug.txt
+coverage debug config >> /app/reports/coverage/debug.txt
+echo "Debug info guardada en /app/reports/coverage/debug.txt"
+
+# Verificar estructura de directorios final
+echo "=== Estructura de directorios final ==="
+ls -R /app/reports/coverage/
+
+# Ajustar las rutas en el reporte XML
+echo "=== Ajustando rutas en el reporte XML ==="
 sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
-
-# Verificar el contenido del XML
-echo "=== Verificación del archivo XML ==="
-echo "Primeras 20 líneas del XML:"
-head -n 20 /app/reports/coverage/coverage.xml
-echo "========================================="
-echo "Buscando entradas de servicios en el XML:"
-grep -A 2 "services/" /app/reports/coverage/coverage.xml || true
-echo "========================================="
 
 # Ejecutar pylint y guardar reporte
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true

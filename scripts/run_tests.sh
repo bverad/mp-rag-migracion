@@ -19,12 +19,16 @@ echo "=== Archivos Python en el proyecto ==="
 find . -name "*.py" -not -path "*/\.*" -not -path "*/venv/*"
 echo "==========================="
 
-# Configurar coverage para usar rutas relativas
-echo "[run]
+# Limpiar archivos de cobertura anteriores
+rm -f .coverage*
+rm -f reports/coverage/*
+
+# Configurar coverage
+cat > .coveragerc << EOL
+[run]
 source = src
 branch = True
 data_file = .coverage
-relative_files = True
 
 [report]
 exclude_lines =
@@ -36,24 +40,21 @@ exclude_lines =
     raise ImportError
 
 [xml]
-output = reports/coverage/coverage.xml" > .coveragerc
+output = reports/coverage/coverage.xml
+EOL
 
 # Mostrar la configuración actual de coverage
 echo "=== Coverage Configuration ==="
 cat .coveragerc
 echo "==========================="
 
-# Limpiar archivos de cobertura anteriores
-rm -f .coverage*
-rm -f reports/coverage/*
-
-# Ejecutar pytest con coverage
+# Ejecutar pytest con coverage y generar reportes
 echo "=== Ejecutando tests y generando reportes ==="
 python -m pytest tests/unit/ tests/integration/ \
     --cov=src \
     --cov-config=.coveragerc \
     --cov-branch \
-    --cov-report=xml \
+    --cov-report=xml:reports/coverage/coverage.xml \
     --cov-report=html:reports/coverage/html \
     --cov-report=term-missing \
     --html=reports/report.html \
@@ -76,35 +77,27 @@ echo "=== Verificando reporte XML ==="
 if [ -f "reports/coverage/coverage.xml" ]; then
     echo "El archivo XML existe"
     ls -l reports/coverage/coverage.xml
+    echo "=== Contenido del archivo XML ==="
+    head -n 20 reports/coverage/coverage.xml
 else
     echo "ERROR: El archivo XML no existe"
-fi
-
-# Verificar archivos incluidos en la cobertura
-echo "=== Archivos incluidos en la cobertura ==="
-coverage debug sys > /app/reports/coverage/debug.txt
-coverage debug config >> /app/reports/coverage/debug.txt
-echo "Debug info guardada en /app/reports/coverage/debug.txt"
-
-# Verificar estructura de directorios final
-echo "=== Estructura de directorios final ==="
-ls -R /app/reports/coverage/
-
-# Ajustar las rutas en el reporte XML si es necesario
-if [ -f "reports/coverage/coverage.xml" ]; then
-    echo "=== Ajustando rutas en el reporte XML ==="
-    # Reemplazar rutas absolutas con relativas
-    sed -i 's|filename="/app/src/|filename="src/|g' reports/coverage/coverage.xml
-    sed -i 's|filename="/app/|filename="|g' reports/coverage/coverage.xml
+    echo "=== Contenido del directorio reports/coverage ==="
+    ls -la reports/coverage/
+    echo "=== Debug de coverage ==="
+    coverage debug sys
+    coverage debug data
 fi
 
 # Ejecutar pylint
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
 
-# Mostrar contenido del reporte XML para verificación
-echo "=== Contenido del reporte XML ==="
+# Si el archivo XML existe, ajustar las rutas
 if [ -f "/app/reports/coverage/coverage.xml" ]; then
-    cat /app/reports/coverage/coverage.xml
+    echo "=== Ajustando rutas en el reporte XML ==="
+    sed -i 's|filename="/app/src/|filename="src/|g' /app/reports/coverage/coverage.xml
+    sed -i 's|filename="/app/|filename="|g' /app/reports/coverage/coverage.xml
+    echo "=== Verificando rutas ajustadas ==="
+    grep "filename=" /app/reports/coverage/coverage.xml | head -n 5
 fi
 
 exit $exit_code 

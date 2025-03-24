@@ -23,12 +23,7 @@ echo "==========================="
 echo "[run]
 source = src
 branch = True
-data_file = /app/reports/coverage/.coverage
-
-[paths]
-source =
-    src/
-    /app/src/
+data_file = .coverage
 
 [report]
 exclude_lines =
@@ -40,7 +35,8 @@ exclude_lines =
     raise ImportError
 
 [xml]
-output = reports/coverage/coverage.xml" > .coveragerc
+output = reports/coverage/coverage.xml
+relative_files = True" > .coveragerc
 
 # Mostrar la configuración actual de coverage
 echo "=== Coverage Configuration ==="
@@ -98,6 +94,7 @@ ls -R /app/reports/coverage/
 
 # Ajustar las rutas en el reporte XML
 echo "=== Ajustando rutas en el reporte XML ==="
+sed -i 's|filename="/app/|filename="|g' /app/reports/coverage/coverage.xml
 sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
 
 # Ejecutar pylint y guardar reporte

@@ -17,10 +17,19 @@ cd /app
 echo "[run]
 source = src/
 relative_files = True
+include =
+    src/main.py
+    src/core/*.py
+    src/repositories/*.py
+    src/services/*.py
+    src/models/*.py
+    src/api/*.py
 omit =
     */tests/*
     */__pycache__/*
     */__init__.py
+    */test_*.py
+    tests/*
 
 [report]
 exclude_lines =

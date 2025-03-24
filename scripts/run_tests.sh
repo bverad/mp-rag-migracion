@@ -2,13 +2,16 @@
 
 # Configurar variables de entorno para testing
 export TESTING=true
-export PYTHONPATH=/app
+export PYTHONPATH=/app/src
 export DEBUG=true
 
 # Crear directorios necesarios
 mkdir -p /app/reports/coverage
 mkdir -p /app/logs
 mkdir -p /app/static
+
+# Cambiar al directorio de la aplicación
+cd /app
 
 # Ejecutar los tests con pytest
 python -m pytest tests/ \
@@ -31,7 +34,10 @@ exit_code=$?
 coverage report > /app/reports/coverage/coverage.txt
 
 # Ejecutar pylint y guardar reporte
-pylint src/ --output-format=parseable > /app/reports/pylint.txt || true
+cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
+
+# Ajustar las rutas en el reporte XML de cobertura
+sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
 
 # Salir con el código de estado de los tests
 exit $exit_code 

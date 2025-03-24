@@ -167,10 +167,11 @@ pipeline {
 								-Dsonar.qualitygate.wait=true \\
 								-Dsonar.ws.timeout=300 \\
 								-Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
-								-Dsonar.coverage.exclusions=tests/**,**/__init__.py \\
-								-Dsonar.exclusions=**/*.pyc,**/__pycache__/**,tests/** \\
+								-Dsonar.coverage.exclusions=tests/**,**/__init__.py,**/__pycache__/** \\
+								-Dsonar.exclusions=**/*.pyc,**/__pycache__/**,tests/**,reports/** \\
 								-Dsonar.python.xunit.reportPath=reports/junit.xml \\
-								-Dsonar.python.pylint.reportPath=reports/pylint.txt
+								-Dsonar.python.pylint.reportPath=reports/pylint.txt \\
+								-Dsonar.scm.exclusions.disabled=true
 							"""
 						}
 						

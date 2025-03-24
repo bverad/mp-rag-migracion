@@ -86,11 +86,11 @@
                             sh "chmod +x ${projectName}/scripts/run_tests.sh"
                             
                             // Ejecutar pruebas dentro del contenedor y generar reportes
-                            sh """
-                                cd ${projectName} && \\
-                                docker run --rm \\
-                                -v \$(pwd):/app \\
-                                ${projectName}:latest ./scripts/run_tests.sh
+                            sh """#!/bin/bash
+                                cd ${projectName}
+                                docker run --rm \
+                                    -v "\$(pwd)":/app \
+                                    ${projectName}:latest ./scripts/run_tests.sh
                             """
                             
                             // Verificar que los reportes existan
@@ -100,8 +100,8 @@
                             
                             // Procesar resultados de cobertura usando el archivo coverage.txt
                             def coverageOutput = sh(
-                                script: """
-                                    cd ${projectName} && \\
+                                script: """#!/bin/bash
+                                    cd ${projectName}
                                     if [ -f reports/coverage/coverage.txt ]; then
                                         grep "TOTAL" reports/coverage/coverage.txt | awk '{gsub(/%/,"",$4); print \$4}'
                                     else
@@ -125,7 +125,7 @@
                             }
                             
                             // Crear un índice HTML que redirija al reporte de cobertura
-                            sh """
+                            sh """#!/bin/bash
                                 cd ${projectName}
                                 echo '<html><head><meta http-equiv="refresh" content="0; url=reports/coverage/html/index.html"></head></html>' > coverage_report.html
                                 chmod -R 755 reports/
@@ -172,32 +172,32 @@
                         try {
                             def scannerHome = tool 'SonarQubeScanner'
                             withSonarQubeEnv('SonarQubeAIT') {
-                            sh """
-                                cd ${projectName} && \\
-                                ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=${projectName} \
-                                -Dsonar.projectName=${projectName} \
-                                -Dsonar.projectVersion=${projectVersion} \
-                                -Dsonar.sources=src \
-                                -Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \
-                                -Dsonar.tests=tests \
-                                -Dsonar.test.inclusions=tests/unit/**/*,tests/integration/**/* \
-                                -Dsonar.test.exclusions=src/**/* \
-                                -Dsonar.exclusions=**/__init__.py,**/__pycache__/**,reports/**/*,src/static/**,src/templates/** \
-                                -Dsonar.host.url=${sonarQube} \
-                                -Dsonar.scm.provider=git \
-                                -Dsonar.language=python \
-                                -Dsonar.python.version=3 \
-                                -Dsonar.token=\${SONAR_AUTH_TOKEN} \
-                                -Dsonar.qualitygate.wait=true \
-                                -Dsonar.ws.timeout=300 \
-                                -Dsonar.python.xunit.reportPath=reports/junit.xml \
-                                -Dsonar.python.xunit.skipDetails=false \
-                                -Dsonar.python.file.suffixes=py \
-                                -Dsonar.sourceEncoding=UTF-8 \
-                                -Dsonar.verbose=true \
-                                -Dsonar.log.level=DEBUG
-                            """
+                                sh """
+                                    cd ${projectName} && \\
+                                    ${scannerHome}/bin/sonar-scanner \\
+                                    -Dsonar.projectKey=${projectName} \\
+                                    -Dsonar.projectName=${projectName} \\
+                                    -Dsonar.projectVersion=${projectVersion} \\
+                                    -Dsonar.sources=src \\
+                                    -Dsonar.tests=tests \\
+                                    -Dsonar.host.url=${sonarQube} \\
+                                    -Dsonar.scm.provider=git \\
+                                    -Dsonar.language=python \\
+                                    -Dsonar.python.version=3 \\
+                                    -Dsonar.token=\${SONAR_AUTH_TOKEN} \\
+                                    -Dsonar.qualitygate.wait=true \\
+                                    -Dsonar.ws.timeout=300 \\
+                                    -Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
+                                    -Dsonar.python.xunit.reportPath=reports/**/junit.xml \\
+                                    -Dsonar.python.xunit.skipDetails=false \\
+                                    -Dsonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/* \\
+                                    -Dsonar.test.inclusions=tests/unit/**/*,tests/integration/**/* \\
+                                    -Dsonar.test.exclusions=src/**/* \\
+                                    -Dsonar.python.file.suffixes=py \\
+                                    -Dsonar.sourceEncoding=UTF-8 \\
+                                    -Dsonar.verbose=true \\
+                                    -Dsonar.log.level=DEBUG
+                                """
                             }
                             
                             timeout(time: 10, unit: 'MINUTES') {

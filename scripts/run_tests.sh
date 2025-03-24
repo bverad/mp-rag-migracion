@@ -16,7 +16,7 @@ cd /app
 
 # Listar todos los archivos Python antes de las pruebas
 echo "=== Archivos Python en el proyecto ==="
-find . -name "*.py" -not -path "*/\.*" -not -path "*/venv/*"
+find src -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -not -path "*/__pycache__/*"
 echo "==========================="
 
 # Limpiar archivos de cobertura anteriores
@@ -29,6 +29,17 @@ cat > .coveragerc << EOL
 source = src
 branch = True
 data_file = .coverage
+relative_files = True
+omit =
+    */venv/*
+    */__pycache__/*
+    */tests/*
+    setup.py
+
+[paths]
+source =
+    src/
+    /app/src/
 
 [report]
 exclude_lines =
@@ -38,6 +49,8 @@ exclude_lines =
     if __name__ == .__main__.:
     pass
     raise ImportError
+    def main()
+    if TYPE_CHECKING:
 
 [xml]
 output = reports/coverage/coverage.xml
@@ -70,14 +83,18 @@ cd /app
 
 # Generar y mostrar reporte detallado
 echo "=== Reporte Detallado de Cobertura ==="
+coverage combine || true
 coverage report --show-missing | tee /app/reports/coverage/coverage.txt
+
+# Regenerar el reporte XML después de combinar
+coverage xml -o reports/coverage/coverage.xml
 
 # Verificar el contenido del reporte XML
 echo "=== Verificando reporte XML ==="
 if [ -f "reports/coverage/coverage.xml" ]; then
     echo "El archivo XML existe"
     ls -l reports/coverage/coverage.xml
-    echo "=== Contenido del archivo XML ==="
+    echo "=== Primeras líneas del archivo XML ==="
     head -n 20 reports/coverage/coverage.xml
 else
     echo "ERROR: El archivo XML no existe"
@@ -94,10 +111,28 @@ cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || t
 # Si el archivo XML existe, ajustar las rutas
 if [ -f "/app/reports/coverage/coverage.xml" ]; then
     echo "=== Ajustando rutas en el reporte XML ==="
-    sed -i 's|filename="/app/src/|filename="src/|g' /app/reports/coverage/coverage.xml
-    sed -i 's|filename="/app/|filename="|g' /app/reports/coverage/coverage.xml
+    cd /app
+    # Primero hacemos backup del archivo
+    cp reports/coverage/coverage.xml reports/coverage/coverage.xml.bak
+    # Ajustamos las rutas
+    sed -i 's|filename="/app/src/|filename="src/|g' reports/coverage/coverage.xml
+    sed -i 's|filename="/app/|filename="|g' reports/coverage/coverage.xml
     echo "=== Verificando rutas ajustadas ==="
-    grep "filename=" /app/reports/coverage/coverage.xml | head -n 5
+    echo "Primeras 5 líneas con 'filename':"
+    grep "filename=" reports/coverage/coverage.xml | head -n 5
+    
+    # Verificar que el archivo sigue siendo válido XML
+    if ! python -c "import xml.etree.ElementTree as ET; ET.parse('reports/coverage/coverage.xml')"; then
+        echo "ERROR: El archivo XML quedó inválido después de ajustar las rutas, restaurando backup"
+        cp reports/coverage/coverage.xml.bak reports/coverage/coverage.xml
+    fi
 fi
+
+# Mostrar resumen final
+echo "=== Resumen Final ==="
+echo "Archivos Python encontrados:"
+find src -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -not -path "*/__pycache__/*" | wc -l
+echo "Contenido del reporte de cobertura:"
+cat /app/reports/coverage/coverage.txt
 
 exit $exit_code 

@@ -179,6 +179,7 @@ pipeline {
 								-Dsonar.test.inclusions=tests/unit/**/*,tests/integration/**/* \
 								-Dsonar.test.exclusions=src/**/* \
 								-Dsonar.inclusions=src/main.py,src/core/**/*.py,src/repositories/**/*.py,src/services/**/*.py,src/models/**/*.py,src/api/**/*.py \
+								-Dsonar.scm.exclusions.disabled=true \
 								-Dsonar.verbose=true
 							"""
 						}

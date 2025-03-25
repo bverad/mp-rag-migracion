@@ -160,9 +160,21 @@
                                 // Ejecutar el análisis
                                 sh """
                                     cd ${projectName}
+                                    
+                                    # Variables requeridas por el script
                                     export PROJECT_NAME=${projectName}
                                     export PROJECT_VERSION=${projectVersion}
                                     export SONAR_SCANNER_HOME=${scannerHome}
+                                    export SONAR_HOST_URL=${sonarQube}
+                                    
+                                    # Verificar variables antes de ejecutar
+                                    echo "=== Variables de entorno configuradas ==="
+                                    echo "PROJECT_NAME: ${projectName}"
+                                    echo "PROJECT_VERSION: ${projectVersion}"
+                                    echo "SONAR_SCANNER_HOME: ${scannerHome}"
+                                    echo "SONAR_HOST_URL: ${sonarQube}"
+                                    
+                                    # Ejecutar análisis
                                     ./scripts/run_sonar_analysis.sh
                                 """
                             }

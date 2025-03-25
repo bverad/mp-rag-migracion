@@ -4,36 +4,59 @@ set -e
 echo "=== Iniciando análisis de SonarQube ==="
 
 # Verificar variables de entorno requeridas
-if [ -z "$SONAR_HOST_URL" ]; then
-    echo "Error: SONAR_HOST_URL no está definida"
-    exit 1
-fi
+required_vars=(
+    "SONAR_HOST_URL"
+    "SONAR_AUTH_TOKEN"
+    "SONAR_SCANNER_HOME"
+    "PROJECT_NAME"
+    "PROJECT_VERSION"
+)
 
-if [ -z "$SONAR_AUTH_TOKEN" ]; then
-    echo "Error: SONAR_AUTH_TOKEN no está definida"
-    exit 1
-fi
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+        echo "Error: La variable $var no está definida"
+        exit 1
+    else
+        echo "✓ $var está configurada: ${!var}"
+    fi
+done
 
-if [ -z "$SONAR_SCANNER_HOME" ]; then
-    echo "Error: SONAR_SCANNER_HOME no está definida"
+# Verificar que el directorio src existe
+if [ ! -d "src" ]; then
+    echo "Error: No se encuentra el directorio src/"
+    pwd
+    ls -la
     exit 1
 fi
 
 # Verificar estructura del proyecto
 echo "=== Verificando estructura del proyecto ==="
+echo "Directorio actual: $(pwd)"
+echo "Contenido del directorio:"
+ls -la
+
+echo "=== Buscando archivos Python ==="
 find . -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*" > python_files.txt
 echo "Archivos Python encontrados:"
 cat python_files.txt
 
 echo "=== Verificando reportes de cobertura ==="
 if [ -f "reports/coverage/coverage.xml" ]; then
-    echo "Reporte de cobertura encontrado"
+    echo "✓ Reporte de cobertura encontrado"
+    echo "Contenido del reporte:"
+    head -n 5 reports/coverage/coverage.xml
 else
-    echo "ADVERTENCIA: No se encontró el reporte de cobertura en reports/coverage/coverage.xml"
+    echo "⚠ ADVERTENCIA: No se encontró el reporte de cobertura en reports/coverage/coverage.xml"
+    echo "Contenido del directorio reports/:"
+    ls -la reports/ || true
+    echo "Contenido del directorio reports/coverage/:"
+    ls -la reports/coverage/ || true
 fi
 
 # Ejecutar SonarQube Scanner
 echo "=== Ejecutando SonarQube Scanner ==="
+echo "Usando scanner en: ${SONAR_SCANNER_HOME}/bin/sonar-scanner"
+
 ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
     -Dsonar.projectKey="${PROJECT_NAME}" \
     -Dsonar.projectName="${PROJECT_NAME}" \
@@ -61,13 +84,19 @@ ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
 # Verificar resultados
 echo "=== Verificando resultados ==="
 if [ -f ".scannerwork/scanner-report/analysis.log" ]; then
-    echo "Log de análisis:"
-    cat .scannerwork/scanner-report/analysis.log
+    echo "✓ Log de análisis encontrado"
+    echo "Últimas 20 líneas del log:"
+    tail -n 20 .scannerwork/scanner-report/analysis.log
+else
+    echo "⚠ No se encontró el log de análisis"
 fi
 
 if [ -f ".scannerwork/scanner-report/sources.txt" ]; then
+    echo "✓ Lista de archivos analizados encontrada"
     echo "Archivos analizados:"
     cat .scannerwork/scanner-report/sources.txt
+else
+    echo "⚠ No se encontró la lista de archivos analizados"
 fi
 
 echo "=== Análisis de SonarQube completado ===" 

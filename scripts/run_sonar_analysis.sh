@@ -65,16 +65,20 @@ ls -lR src/
 echo -e "\n=== Permisos en reports/ ==="
 ls -lR reports/
 
+echo "=== Generando lista de archivos Python ==="
+# Crear lista de archivos Python en src/
+find src -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*" > src_files.txt
+echo "Archivos Python encontrados en src/:"
+cat src_files.txt
+
 # Crear archivo de configuración temporal
 echo -e "\n=== Creando configuración de SonarQube ==="
-cat > sonar-project.properties << EOL
-sonar.projectKey=${PROJECT_NAME}
+echo "sonar.projectKey=${PROJECT_NAME}
 sonar.projectName=${PROJECT_NAME}
 sonar.projectVersion=${PROJECT_VERSION}
 
 # Configuración básica
-sonar.sources=src
-sonar.tests=tests
+sonar.sourceEncoding=UTF-8
 sonar.python.version=3
 sonar.host.url=${SONAR_HOST_URL}
 sonar.token=${SONAR_AUTH_TOKEN}
@@ -83,12 +87,11 @@ sonar.qualitygate.wait=true
 sonar.ws.timeout=300
 sonar.verbose=true
 sonar.log.level=DEBUG
-sonar.sourceEncoding=UTF-8
 
 # Configuración de fuentes
 sonar.sources=src
-sonar.inclusions=**/*.py
-sonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,tests/**/*
+sonar.inclusions=src/api/**/*.py,src/core/**/*.py,src/models/**/*.py,src/repositories/**/*.py,src/services/**/*.py,src/main.py
+sonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py
 
 # Configuración de tests
 sonar.tests=tests
@@ -102,30 +105,38 @@ sonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**
 # Configuración de reportes
 sonar.python.xunit.reportPath=reports/junit.xml
 sonar.python.xunit.skipDetails=false
-EOL
+
+# Configuración adicional
+sonar.sourceEncoding=UTF-8" > sonar-project.properties
 
 echo "=== Contenido de sonar-project.properties ==="
 cat sonar-project.properties
 
+echo -e "\n=== Verificando archivos antes del análisis ==="
+echo "Contenido de src/:"
+ls -R src/
+
+echo -e "\n=== Verificando archivos Python en src/ ==="
+find src -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*" -not -name "__init__.py"
+
 echo -e "\n=== Ejecutando SonarQube Scanner con debug ==="
 ${SONAR_SCANNER_HOME}/bin/sonar-scanner -Dproject.settings=sonar-project.properties -X
 
-echo -e "\n=== Recolectando resultados ==="
-if [ -f ".scannerwork/scanner-report/analysis.log" ]; then
-    echo "=== Contenido completo del log de análisis ==="
-    cat .scannerwork/scanner-report/analysis.log
-    
-    echo -e "\n=== Archivos analizados vs encontrados ==="
-    if [ -f ".scannerwork/scanner-report/sources.txt" ]; then
-        echo "Archivos analizados por SonarQube:"
-        cat .scannerwork/scanner-report/sources.txt | tee analyzed_files.txt
-        echo "Total analizados: $(wc -l < analyzed_files.txt)"
-        
-        echo -e "\nArchivos no analizados:"
-        comm -23 <(sort src_python_files.txt) <(sort analyzed_files.txt)
-    fi
-else
-    echo "⚠ No se encontró el log de análisis"
+echo -e "\n=== Verificando resultados ==="
+if [ -f ".scannerwork/scanner-report/sources.txt" ]; then
+    echo "Archivos analizados por SonarQube:"
+    cat .scannerwork/scanner-report/sources.txt
+    echo -e "\nComparando con archivos originales:"
+    echo "Archivos en src_files.txt:"
+    cat src_files.txt
+    echo -e "\nArchivos faltantes:"
+    comm -23 <(sort src_files.txt) <(sort .scannerwork/scanner-report/sources.txt)
 fi
 
-echo "=== Diagnóstico completado ===" 
+if [ -f ".scannerwork/scanner-report/analysis.log" ]; then
+    echo -e "\n=== Log de análisis ==="
+    echo "Buscando mensajes relevantes:"
+    grep -i "exclu\|inclu\|error\|warn\|debug" .scannerwork/scanner-report/analysis.log
+fi
+
+echo "=== Análisis completado ===" 

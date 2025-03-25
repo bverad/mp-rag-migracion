@@ -154,31 +154,16 @@
                         try {
                             def scannerHome = tool 'SonarQubeScanner'
                             withSonarQubeEnv('SonarQubeAIT') {
+                                // Asegurar que el script tiene permisos de ejecución
+                                sh "chmod +x ${projectName}/scripts/run_sonar_analysis.sh"
+                                
+                                // Ejecutar el análisis
                                 sh """
-                                    cd ${projectName} && \\
-                                    ${scannerHome}/bin/sonar-scanner \\
-                                    -Dsonar.projectKey=${projectName} \\
-                                    -Dsonar.projectName=${projectName} \\
-                                    -Dsonar.projectVersion=${projectVersion} \\
-                                    -Dsonar.sources=src \\
-                                    -Dsonar.tests=tests \\
-                                    -Dsonar.host.url=${sonarQube} \\
-                                    -Dsonar.scm.provider=git \\
-                                    -Dsonar.language=python \\
-                                    -Dsonar.python.version=3 \\
-                                    -Dsonar.token=\${SONAR_AUTH_TOKEN} \\
-                                    -Dsonar.qualitygate.wait=true \\
-                                    -Dsonar.ws.timeout=300 \\
-                                    -Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \\
-                                    -Dsonar.python.xunit.reportPath=reports/**/junit.xml \\
-                                    -Dsonar.python.xunit.skipDetails=false \\
-                                    -Dsonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/* \\
-                                    -Dsonar.test.inclusions=tests/unit/**/*,tests/integration/**/* \\
-                                    -Dsonar.test.exclusions=src/**/* \\
-                                    -Dsonar.python.file.suffixes=py \\
-                                    -Dsonar.sourceEncoding=UTF-8 \\
-                                    -Dsonar.verbose=true \\
-                                    -Dsonar.log.level=DEBUG
+                                    cd ${projectName}
+                                    export PROJECT_NAME=${projectName}
+                                    export PROJECT_VERSION=${projectVersion}
+                                    export SONAR_SCANNER_HOME=${scannerHome}
+                                    ./scripts/run_sonar_analysis.sh
                                 """
                             }
                             

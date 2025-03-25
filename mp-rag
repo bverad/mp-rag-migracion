@@ -70,48 +70,34 @@
                     script {
                         echo "Ejecutando pruebas unitarias y de cobertura"
                         try {
-                            // Crear directorios para reportes
+                            // Preparar entorno
                             sh """
-                                mkdir -p ${projectName}/reports/coverage
-                                mkdir -p ${projectName}/reports/trivy
-                                chmod -R 777 ${projectName}/reports
-                            """
-                            
-                            // Copiar archivo .env.test existente
-                            sh """
-                                cp ${projectName}/tests/.env.test ${projectName}/.env
-                            """
-                            
-                            // Asegurar permisos de ejecución en el script de tests
-                            sh "chmod +x ${projectName}/scripts/run_tests.sh"
-                            
-                            // Ejecutar pruebas dentro del contenedor y generar reportes
-                            sh """#!/bin/bash
                                 cd ${projectName}
-                                docker run --rm \
-                                    -v "\$(pwd)":/app \
-                                    ${projectName}:latest ./scripts/run_tests.sh
+                                mkdir -p reports/coverage reports/trivy
+                                chmod -R 777 reports
+                                cp tests/.env.test .env
+                                chmod +x scripts/run_tests.sh
                             """
                             
-                            // Verificar que los reportes existan
-                            if (!fileExists("${projectName}/reports/coverage/coverage.xml")) {
-                                error "No se generó el reporte XML de cobertura"
+                            // Ejecutar pruebas dentro del contenedor
+                            def testOutput = sh(
+                                script: """
+                                    cd ${projectName}
+                                    docker run --rm -v \$(pwd):/app ${projectName}:latest /app/scripts/run_tests.sh
+                                """,
+                                returnStatus: true
+                            )
+                            
+                            if (testOutput != 0) {
+                                error "Las pruebas fallaron con código de salida: ${testOutput}"
                             }
                             
-                            // Procesar resultados de cobertura usando el archivo coverage.txt
+                            // Verificar cobertura
                             def coverageOutput = sh(
-                                script: """#!/bin/bash
-                                    cd ${projectName}
-                                    if [ -f reports/coverage/coverage.txt ]; then
-                                        grep "TOTAL" reports/coverage/coverage.txt | awk '{gsub(/%/,"",$4); print \$4}'
-                                    else
-                                        echo "0"
-                                    fi
-                                """,
+                                script: "cd ${projectName}; if [ -f reports/coverage/coverage.txt ]; then grep 'TOTAL' reports/coverage/coverage.txt | awk '{gsub(/%/,\"\",\$4); print \$4}'; else echo '0'; fi",
                                 returnStdout: true
                             ).trim()
                             
-                            // Convertir a número y validar
                             def coverageValue = coverageOutput.toFloat()
                             if (coverageValue <= 0 || coverageValue > 100) {
                                 error "Porcentaje de cobertura inválido: ${coverageValue}%"
@@ -124,15 +110,10 @@
                                 error "Cobertura de código (${testResults.coverage}%) por debajo del umbral requerido (${env.TEST_COVERAGE_THRESHOLD}%)"
                             }
                             
-                            // Crear un índice HTML que redirija al reporte de cobertura
-                            sh """#!/bin/bash
-                                cd ${projectName}
-                                echo '<html><head><meta http-equiv="refresh" content="0; url=reports/coverage/html/index.html"></head></html>' > coverage_report.html
-                                chmod -R 755 reports/
-                                find reports/ -type f -exec chmod 644 {} \\;
-                            """
+                            // Generar reporte HTML
+                            sh """cd ${projectName}; echo '<html><head><meta http-equiv="refresh" content="0; url=reports/coverage/html/index.html"></head></html>' > coverage_report.html"""
                             
-                            // Archivar todos los reportes
+                            // Archivar reportes
                             archiveArtifacts(
                                 artifacts: "${projectName}/reports/**/*,${projectName}/coverage_report.html",
                                 fingerprint: true,
@@ -154,11 +135,12 @@
                             ]
                             
                         } catch (Exception e) {
+                            echo "=== Error durante la ejecución de pruebas ==="
+                            echo "Error: ${e.getMessage()}"
                             testResults.failed = true
                             testResults.error = e.getMessage()
                             error "Error en las pruebas: ${e.getMessage()}"
                         } finally {
-                            // Limpiar archivo .env temporal
                             sh "rm -f ${projectName}/.env"
                         }
                     }

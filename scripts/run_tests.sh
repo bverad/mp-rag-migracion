@@ -1,21 +1,32 @@
 #!/bin/bash
-set -e
+set -ex
+
+echo "=== Iniciando script de tests ==="
+echo "=== Verificando entorno ==="
+pwd
+ls -la
+echo "=== Variables de entorno ==="
+env | grep -E "PYTHON|TEST|DEBUG" || true
 
 # Configurar variables de entorno para testing
 export TESTING=true
 export PYTHONPATH=/app
 export DEBUG=true
 
-# Crear directorios necesarios
+echo "=== Creando directorios necesarios ==="
 mkdir -p /app/reports/coverage
 mkdir -p /app/logs
 mkdir -p /app/static
+ls -la /app/reports/ || true
 
-# Cambiar al directorio de la aplicación
+echo "=== Cambiando al directorio de la aplicación ==="
 cd /app
+pwd
+ls -la
 
-# Configurar coverage para usar rutas relativas
-echo "[run]
+echo "=== Configurando coverage ==="
+cat > .coveragerc << 'EOL'
+[run]
 source = src/
 relative_files = True
 include =
@@ -39,15 +50,13 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     pass
-    raise ImportError" > .coveragerc
+    raise ImportError
+EOL
 
-# Mostrar la configuración actual de coverage
-echo "=== Coverage Configuration ==="
+echo "=== Configuración de coverage ==="
 cat .coveragerc
-echo "==========================="
 
-# Ejecutar todos los tests con cobertura
-echo "=== Ejecutando tests y generando reportes ==="
+echo "=== Ejecutando tests con cobertura ==="
 python -m pytest tests/unit/ tests/integration/ \
     --cov=src \
     --cov-report=xml:reports/coverage/coverage.xml \
@@ -64,19 +73,29 @@ python -m pytest tests/unit/ tests/integration/ \
 # Verificar el resultado
 exit_code=$?
 
-# Generar reporte detallado de cobertura
+echo "=== Generando reporte detallado de cobertura ==="
 echo "=== Reporte Detallado de Cobertura ===" > /app/reports/coverage/coverage.txt
 coverage report --show-missing >> /app/reports/coverage/coverage.txt
 
-# Ajustar las rutas en el reporte XML de cobertura
+echo "=== Ajustando rutas en el reporte XML ==="
 sed -i 's|/app/src/|src/|g' /app/reports/coverage/coverage.xml
 
-# Ejecutar pylint y guardar reporte
+echo "=== Ejecutando pylint ==="
 cd /app/src && pylint . --output-format=parseable > /app/reports/pylint.txt || true
 
-# Verificar el resultado final
-echo "=== Verificación final del archivo XML ==="
-head -n 20 /app/reports/coverage/coverage.xml
+echo "=== Verificando archivos generados ==="
+ls -la /app/reports/ || true
+ls -la /app/reports/coverage/ || true
+ls -la /app/reports/coverage/html/ || true
 
-# Salir con el código de estado de los tests
+echo "=== Verificando contenido de archivos clave ==="
+echo "=== Inicio de coverage.xml ==="
+head -n 20 /app/reports/coverage/coverage.xml || true
+echo "=== Inicio de coverage.txt ==="
+head -n 20 /app/reports/coverage/coverage.txt || true
+
+echo "=== Ajustando permisos ==="
+chmod -R 777 /app/reports/
+
+echo "=== Script de tests completado con código de salida: ${exit_code} ==="
 exit $exit_code 

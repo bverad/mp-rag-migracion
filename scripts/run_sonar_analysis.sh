@@ -65,6 +65,8 @@ echo "Usando scanner en: ${SONAR_SCANNER_HOME}/bin/sonar-scanner"
 echo "sonar.projectKey=${PROJECT_NAME}
 sonar.projectName=${PROJECT_NAME}
 sonar.projectVersion=${PROJECT_VERSION}
+
+# Configuración básica
 sonar.sources=src
 sonar.tests=tests
 sonar.python.version=3
@@ -77,40 +79,43 @@ sonar.verbose=true
 sonar.log.level=DEBUG
 sonar.sourceEncoding=UTF-8
 
-# Configuración de cobertura
-sonar.python.coverage.reportPaths=reports/coverage/coverage.xml
+# Configuración de fuentes y exclusiones
+sonar.sources=src
+sonar.inclusions=**/*.py
+sonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,**/tests/**/*,**/*.html,**/*.css,**/*.js,tests/**/*
 sonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/*
-
-# Configuración de tests
-sonar.test.inclusions=tests/**/*.py
-sonar.test.exclusions=src/**/*
-sonar.python.xunit.reportPath=reports/junit.xml
-sonar.python.xunit.skipDetails=false
-
-# Configuración de fuentes
-sonar.sources.inclusions=src/**/*.py
-sonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,**/tests/**,**/*.html,**/*.css,**/*.js
 sonar.cpd.exclusions=tests/**/*
 
-# Configuración adicional de Python
+# Configuración de tests
+sonar.tests=tests
+sonar.test.inclusions=tests/**/*.py
+sonar.test.exclusions=src/**/*
+
+# Configuración de cobertura
+sonar.python.coverage.reportPaths=reports/coverage/coverage.xml
 sonar.python.coverage.forceReportGeneration=true
 sonar.python.coverage.itReportPath=reports/coverage/coverage.xml
 sonar.python.coverage.overallReportPath=reports/coverage/coverage.xml
-sonar.python.coverage.reportPath=reports/coverage/coverage.xml
 
-# Configuración de importación de reportes
+# Configuración de reportes de tests
+sonar.python.xunit.reportPath=reports/junit.xml
+sonar.python.xunit.skipDetails=false
 sonar.python.xunit.pythonReportPath=reports/junit.xml
 sonar.test.reportPath=reports/junit.xml
-sonar.python.xunit.provideDetails=true
 
-# Configuración de análisis
-sonar.sourceEncoding=UTF-8
+# Configuración adicional
 sonar.python.pylint.reportPath=reports/pylint.txt" > sonar-project.properties
+
+# Verificar la configuración antes de ejecutar
+echo "=== Verificando configuración ==="
+echo "Archivos Python en src/:"
+find src -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*"
 
 echo "=== Contenido del archivo de configuración ==="
 cat sonar-project.properties
 
-${SONAR_SCANNER_HOME}/bin/sonar-scanner -Dproject.settings=sonar-project.properties
+# Ejecutar SonarQube Scanner con debug
+${SONAR_SCANNER_HOME}/bin/sonar-scanner -Dproject.settings=sonar-project.properties -X
 
 # Verificar resultados
 echo "=== Verificando resultados ==="

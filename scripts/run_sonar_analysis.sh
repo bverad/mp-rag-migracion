@@ -39,12 +39,16 @@ echo "=== Buscando archivos Python ==="
 find . -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*" > python_files.txt
 echo "Archivos Python encontrados:"
 cat python_files.txt
+total_files=$(wc -l < python_files.txt)
+echo "Total de archivos Python encontrados: $total_files"
 
 echo "=== Verificando reportes de cobertura ==="
 if [ -f "reports/coverage/coverage.xml" ]; then
     echo "✓ Reporte de cobertura encontrado"
     echo "Contenido del reporte:"
-    head -n 5 reports/coverage/coverage.xml
+    head -n 10 reports/coverage/coverage.xml
+    echo "Verificando rutas en el reporte:"
+    grep "filename=" reports/coverage/coverage.xml | head -n 5
 else
     echo "⚠ ADVERTENCIA: No se encontró el reporte de cobertura en reports/coverage/coverage.xml"
     echo "Contenido del directorio reports/:"
@@ -62,6 +66,7 @@ ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
     -Dsonar.projectName="${PROJECT_NAME}" \
     -Dsonar.projectVersion="${PROJECT_VERSION}" \
     -Dsonar.sources=src \
+    -Dsonar.tests=tests \
     -Dsonar.python.version=3 \
     -Dsonar.host.url="${SONAR_HOST_URL}" \
     -Dsonar.token="${SONAR_AUTH_TOKEN}" \
@@ -77,9 +82,15 @@ ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
     -Dsonar.test.exclusions=src/**/* \
     -Dsonar.python.xunit.reportPath=reports/junit.xml \
     -Dsonar.python.xunit.skipDetails=false \
+    -Dsonar.python.xunit.pythonReportPath=reports/junit.xml \
     -Dsonar.inclusions=src/**/*.py \
     -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,**/tests/**,**/*.html,**/*.css,**/*.js \
-    -Dsonar.python.coverage.forceReportGeneration=true
+    -Dsonar.python.coverage.forceReportGeneration=true \
+    -Dsonar.python.coverage.itReportPath=reports/coverage/coverage.xml \
+    -Dsonar.python.coverage.overallReportPath=reports/coverage/coverage.xml \
+    -Dsonar.python.coverage.reportPath=reports/coverage/coverage.xml \
+    -Dsonar.test.reportPath=reports/junit.xml \
+    -Dsonar.python.xunit.provideDetails=true
 
 # Verificar resultados
 echo "=== Verificando resultados ==="
@@ -95,6 +106,14 @@ if [ -f ".scannerwork/scanner-report/sources.txt" ]; then
     echo "✓ Lista de archivos analizados encontrada"
     echo "Archivos analizados:"
     cat .scannerwork/scanner-report/sources.txt
+    total_analyzed=$(wc -l < .scannerwork/scanner-report/sources.txt)
+    echo "Total de archivos analizados: $total_analyzed"
+    
+    if [ "$total_analyzed" -lt "$total_files" ]; then
+        echo "⚠ ADVERTENCIA: No todos los archivos Python fueron analizados"
+        echo "Archivos encontrados: $total_files"
+        echo "Archivos analizados: $total_analyzed"
+    fi
 else
     echo "⚠ No se encontró la lista de archivos analizados"
 fi

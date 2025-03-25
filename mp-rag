@@ -157,26 +157,51 @@
                                 // Asegurar que el script tiene permisos de ejecución
                                 sh "chmod +x ${projectName}/scripts/run_sonar_analysis.sh"
                                 
-                                // Ejecutar el análisis
+                                // Verificar la estructura antes del análisis
                                 sh """
                                     cd ${projectName}
-                                    
-                                    # Variables requeridas por el script
-                                    export PROJECT_NAME=${projectName}
-                                    export PROJECT_VERSION=${projectVersion}
-                                    export SONAR_SCANNER_HOME=${scannerHome}
-                                    export SONAR_HOST_URL=${sonarQube}
-                                    
-                                    # Verificar variables antes de ejecutar
-                                    echo "=== Variables de entorno configuradas ==="
-                                    echo "PROJECT_NAME: ${projectName}"
-                                    echo "PROJECT_VERSION: ${projectVersion}"
-                                    echo "SONAR_SCANNER_HOME: ${scannerHome}"
-                                    echo "SONAR_HOST_URL: ${sonarQube}"
-                                    
-                                    # Ejecutar análisis
-                                    ./scripts/run_sonar_analysis.sh
+                                    echo "=== Verificando estructura antes del análisis ==="
+                                    echo "Contenido del directorio actual:"
+                                    ls -la
+                                    echo "Archivos Python en src/:"
+                                    find src -type f -name "*.py" | sort
+                                    echo "Contenido de reports/coverage/:"
+                                    ls -la reports/coverage/
                                 """
+                                
+                                // Ejecutar el análisis
+                                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                                    sh """
+                                        cd ${projectName}
+                                        
+                                        # Variables requeridas por el script
+                                        export PROJECT_NAME=${projectName}
+                                        export PROJECT_VERSION=${projectVersion}
+                                        export SONAR_SCANNER_HOME=${scannerHome}
+                                        export SONAR_HOST_URL=${sonarQube}
+                                        export SONAR_AUTH_TOKEN=\${SONAR_TOKEN}
+                                        
+                                        # Verificar variables antes de ejecutar
+                                        echo "=== Variables de entorno configuradas ==="
+                                        echo "PROJECT_NAME: ${projectName}"
+                                        echo "PROJECT_VERSION: ${projectVersion}"
+                                        echo "SONAR_SCANNER_HOME: ${scannerHome}"
+                                        echo "SONAR_HOST_URL: ${sonarQube}"
+                                        echo "SONAR_AUTH_TOKEN: [PROTECTED]"
+                                        
+                                        # Verificar el reporte de cobertura
+                                        if [ -f reports/coverage/coverage.xml ]; then
+                                            echo "Contenido del reporte de cobertura:"
+                                            head -n 10 reports/coverage/coverage.xml
+                                        else
+                                            echo "ERROR: No se encuentra el reporte de cobertura"
+                                            exit 1
+                                        fi
+                                        
+                                        # Ejecutar análisis
+                                        ./scripts/run_sonar_analysis.sh
+                                    """
+                                }
                             }
                             
                             timeout(time: 10, unit: 'MINUTES') {

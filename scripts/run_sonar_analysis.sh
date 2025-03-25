@@ -61,36 +61,56 @@ fi
 echo "=== Ejecutando SonarQube Scanner ==="
 echo "Usando scanner en: ${SONAR_SCANNER_HOME}/bin/sonar-scanner"
 
-${SONAR_SCANNER_HOME}/bin/sonar-scanner \
-    -Dsonar.projectKey="${PROJECT_NAME}" \
-    -Dsonar.projectName="${PROJECT_NAME}" \
-    -Dsonar.projectVersion="${PROJECT_VERSION}" \
-    -Dsonar.sources=src \
-    -Dsonar.tests=tests \
-    -Dsonar.python.version=3 \
-    -Dsonar.host.url="${SONAR_HOST_URL}" \
-    -Dsonar.token="${SONAR_AUTH_TOKEN}" \
-    -Dsonar.scm.provider=git \
-    -Dsonar.qualitygate.wait=true \
-    -Dsonar.ws.timeout=300 \
-    -Dsonar.verbose=true \
-    -Dsonar.log.level=DEBUG \
-    -Dsonar.sourceEncoding=UTF-8 \
-    -Dsonar.python.coverage.reportPaths=reports/coverage/coverage.xml \
-    -Dsonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/* \
-    -Dsonar.test.inclusions=tests/**/*.py \
-    -Dsonar.test.exclusions=src/**/* \
-    -Dsonar.python.xunit.reportPath=reports/junit.xml \
-    -Dsonar.python.xunit.skipDetails=false \
-    -Dsonar.python.xunit.pythonReportPath=reports/junit.xml \
-    -Dsonar.inclusions=src/**/*.py \
-    -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,**/tests/**,**/*.html,**/*.css,**/*.js \
-    -Dsonar.python.coverage.forceReportGeneration=true \
-    -Dsonar.python.coverage.itReportPath=reports/coverage/coverage.xml \
-    -Dsonar.python.coverage.overallReportPath=reports/coverage/coverage.xml \
-    -Dsonar.python.coverage.reportPath=reports/coverage/coverage.xml \
-    -Dsonar.test.reportPath=reports/junit.xml \
-    -Dsonar.python.xunit.provideDetails=true
+# Crear archivo de configuración temporal
+echo "sonar.projectKey=${PROJECT_NAME}
+sonar.projectName=${PROJECT_NAME}
+sonar.projectVersion=${PROJECT_VERSION}
+sonar.sources=src
+sonar.tests=tests
+sonar.python.version=3
+sonar.host.url=${SONAR_HOST_URL}
+sonar.token=${SONAR_AUTH_TOKEN}
+sonar.scm.provider=git
+sonar.qualitygate.wait=true
+sonar.ws.timeout=300
+sonar.verbose=true
+sonar.log.level=DEBUG
+sonar.sourceEncoding=UTF-8
+
+# Configuración de cobertura
+sonar.python.coverage.reportPaths=reports/coverage/coverage.xml
+sonar.coverage.exclusions=tests/**/*,**/__init__.py,**/__pycache__/**,reports/**/*
+
+# Configuración de tests
+sonar.test.inclusions=tests/**/*.py
+sonar.test.exclusions=src/**/*
+sonar.python.xunit.reportPath=reports/junit.xml
+sonar.python.xunit.skipDetails=false
+
+# Configuración de fuentes
+sonar.sources.inclusions=src/**/*.py
+sonar.exclusions=**/__pycache__/**,**/*.pyc,**/__init__.py,**/tests/**,**/*.html,**/*.css,**/*.js
+sonar.cpd.exclusions=tests/**/*
+
+# Configuración adicional de Python
+sonar.python.coverage.forceReportGeneration=true
+sonar.python.coverage.itReportPath=reports/coverage/coverage.xml
+sonar.python.coverage.overallReportPath=reports/coverage/coverage.xml
+sonar.python.coverage.reportPath=reports/coverage/coverage.xml
+
+# Configuración de importación de reportes
+sonar.python.xunit.pythonReportPath=reports/junit.xml
+sonar.test.reportPath=reports/junit.xml
+sonar.python.xunit.provideDetails=true
+
+# Configuración de análisis
+sonar.sourceEncoding=UTF-8
+sonar.python.pylint.reportPath=reports/pylint.txt" > sonar-project.properties
+
+echo "=== Contenido del archivo de configuración ==="
+cat sonar-project.properties
+
+${SONAR_SCANNER_HOME}/bin/sonar-scanner -Dproject.settings=sonar-project.properties
 
 # Verificar resultados
 echo "=== Verificando resultados ==="
@@ -113,6 +133,9 @@ if [ -f ".scannerwork/scanner-report/sources.txt" ]; then
         echo "⚠ ADVERTENCIA: No todos los archivos Python fueron analizados"
         echo "Archivos encontrados: $total_files"
         echo "Archivos analizados: $total_analyzed"
+        
+        echo "=== Archivos Python encontrados pero no analizados ==="
+        comm -23 <(sort python_files.txt) <(sort .scannerwork/scanner-report/sources.txt)
     fi
 else
     echo "⚠ No se encontró la lista de archivos analizados"
